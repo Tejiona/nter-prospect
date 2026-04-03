@@ -2,7 +2,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialisation de Gemini
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
 
 export async function POST(req: Request) {
@@ -11,160 +10,114 @@ export async function POST(req: Request) {
     const target = body.target || "Entreprises locales";
     const clientName = body.clientName || "Notre agence";
     const knowledgeBase = body.knowledgeBase || "Aucune information supplémentaire fournie.";
+    const existingProspects = body.existingProspects || [];
+    
+    const lang = body.lang || 'fr';
+    const isFollowUp = body.isFollowUp || false;
+    const manualName = body.manualName;
+    const manualCompany = body.manualCompany;
 
-    // ====================================================================
-    // ÉTAPE 1 : SCRAPING DES VRAIES DONNÉES (Google Maps & Proxycurl)
-    // ====================================================================
-    let scrapedName = "";
-    let scrapedCompany = "";
+    let scrapedName = manualName || "";
+    let scrapedCompany = manualCompany || "";
     let scrapedContext = "";
 
-    // 1A. Détection intelligente : Commerce local vs B2B
-    const isLocalBusiness = target.toLowerCase().includes('restaurant') || 
-                            target.toLowerCase().includes('boulangerie') || 
-                            target.toLowerCase().includes('hôtel') ||
-                            target.toLowerCase().includes('boutique') ||
-                            target.toLowerCase().includes('agence');
+    if (!manualName && !manualCompany) {
+        const isLocalBusiness = target.toLowerCase().includes('restaurant') || target.toLowerCase().includes('boulangerie') || target.toLowerCase().includes('hôtel') || target.toLowerCase().includes('boutique') || target.toLowerCase().includes('agence');
 
-    // --------------------------------------------------------------------
-    // SCRAPER 1 : GOOGLE MAPS (Commerces Locaux)
-    // --------------------------------------------------------------------
-    if (isLocalBusiness && process.env.GOOGLE_MAPS_API_KEY) {
-        console.log("Scraping via Google Maps API...");
-        try {
-            const mapsUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(target)}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
-            const mapsResponse = await fetch(mapsUrl);
-            const mapsData = await mapsResponse.json();
-
-            if (mapsData.results && mapsData.results.length > 0) {
-                const place = mapsData.results[0];
-                scrapedCompany = place.name;
-                scrapedName = "Gérant / Direction"; // Google ne donne pas le nom du patron directement
-                scrapedContext = `Adresse: ${place.formatted_address}. Note Google: ${place.rating}/5 avec ${place.user_ratings_total} avis.`;
-            }
-        } catch (err) {
-            console.error("Erreur Google Maps :", err);
-        }
-    } 
-    // --------------------------------------------------------------------
-    // SCRAPER 2 : PROXYCURL (Profils B2B LinkedIn)
-    // --------------------------------------------------------------------
-    else if (!isLocalBusiness && process.env.PROXYCURL_API_KEY) {
-        console.log("Scraping via Proxycurl (LinkedIn)...");
-        try {
-            // ACTION A : Rechercher l'URL LinkedIn du profil
-            const searchUrl = `https://nubela.co/proxycurl/api/v2/search/person?keyword=${encodeURIComponent(target)}&page_size=1`; 
-            const searchResponse = await fetch(searchUrl, {
-                headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` }
-            });
-            
-            if (searchResponse.ok) {
-                const searchData = await searchResponse.json();
-                
-                if (searchData.results && searchData.results.length > 0) {
-                    const linkedInUrl = searchData.results[0].profile_url;
-                    console.log("Profil LinkedIn trouvé :", linkedInUrl);
-
-                    // ACTION B : Scraper le profil complet pour nourrir l'IA
-                    const profileUrl = `https://nubela.co/proxycurl/api/v2/linkedin?url=${encodeURIComponent(linkedInUrl)}&use_cache=if-present`;
-                    const profileResponse = await fetch(profileUrl, {
-                        headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` }
-                    });
-                    
-                    if (profileResponse.ok) {
-                        const profileData = await profileResponse.json();
-                        
-                        scrapedName = profileData.full_name || "Contact B2B";
-                        scrapedCompany = profileData.experiences?.[0]?.company || target;
-                        
-                        // Synthèse des données du profil pour Gemini
-                        const headline = profileData.headline || "Non spécifié";
-                        const summary = profileData.summary ? profileData.summary.substring(0, 400) : "Pas de biographie détaillée.";
-                        const city = profileData.city || "Emplacement non spécifié";
-                        
-                        scrapedContext = `Titre LinkedIn: ${headline}. Localisation: ${city}. Bio LinkedIn: ${summary}. Entreprise actuelle: ${scrapedCompany}.`;
-                        console.log("Extraction Proxycurl réussie !");
-                    } else {
-                        console.error("Proxycurl: Impossible de lire le profil.", await profileResponse.text());
-                    }
-                } else {
-                    console.log("Proxycurl: Aucun résultat de recherche pour cette cible.");
+        if (isLocalBusiness && process.env.GOOGLE_MAPS_API_KEY) {
+            try {
+                const mapsUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(target)}&key=${process.env.GOOGLE_MAPS_API_KEY}`;
+                const mapsResponse = await fetch(mapsUrl);
+                const mapsData = await mapsResponse.json();
+                if (mapsData.results && mapsData.results.length > 0) {
+                    const place = mapsData.results.find((p: any) => !existingProspects.some((ep: string) => ep.includes(p.name))) || mapsData.results[0];
+                    scrapedCompany = place.name;
+                    scrapedName = "Direction"; 
+                    scrapedContext = `Adresse: ${place.formatted_address}. Note Google: ${place.rating}/5.`;
                 }
-            } else {
-                console.error("Proxycurl: Erreur sur l'API de recherche.", await searchResponse.text());
-            }
-        } catch (err) {
-            console.error("Erreur générale Proxycurl:", err);
+            } catch (err) { console.error("Erreur Google Maps :", err); }
+        } 
+        else if (!isLocalBusiness && process.env.PROXYCURL_API_KEY) {
+            try {
+                const searchUrl = `https://nubela.co/proxycurl/api/v2/search/person?keyword=${encodeURIComponent(target)}&page_size=3`; 
+                const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` } });
+                if (searchResponse.ok) {
+                    const searchData = await searchResponse.json();
+                    if (searchData.results && searchData.results.length > 0) {
+                        const linkedInUrl = searchData.results[0].profile_url;
+                        const profileResponse = await fetch(`https://nubela.co/proxycurl/api/v2/linkedin?url=${encodeURIComponent(linkedInUrl)}&use_cache=if-present`, { headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` } });
+                        if (profileResponse.ok) {
+                            const profileData = await profileResponse.json();
+                            scrapedName = profileData.full_name || "Contact B2B";
+                            scrapedCompany = profileData.experiences?.[0]?.company || target;
+                            scrapedContext = `Titre: ${profileData.headline}. Bio: ${profileData.summary?.substring(0, 200)}. Localisation: ${profileData.city || profileData.country || 'Inconnue'}`;
+                        }
+                    }
+                }
+            } catch (err) { console.error("Erreur Proxycurl:", err); }
         }
+
+        if (!scrapedCompany) {
+            scrapedCompany = target; 
+            scrapedName = "Alexandre Martin";
+            scrapedContext = "Entreprise dynamique du secteur cherchant à optimiser ses processus internes.";
+        }
+    } else {
+        scrapedContext = "Prospect inséré manuellement. Rédige un message pertinent basé sur son entreprise et l'offre de notre client.";
     }
 
-    // --------------------------------------------------------------------
-    // MODE SÉCURITÉ (FALLBACK)
-    // --------------------------------------------------------------------
-    if (!scrapedCompany) {
-        console.log("Mode Fallback activé : Génération d'un profil hyper-réaliste par Gemini.");
-        scrapedCompany = target; 
-        scrapedName = "Alexandre Martin (Exemple)";
-        scrapedContext = "Entreprise dynamique du secteur cherchant à optimiser ses processus internes.";
-    }
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig: { responseMimeType: "application/json" } });
 
-
-    // ====================================================================
-    // ÉTAPE 2 : LE CERVEAU IA (Gemini 2.5 Pro) PREND LE RELAIS
-    // ====================================================================
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.5-pro",
-        generationConfig: { responseMimeType: "application/json" }
-    });
+    const languageInstruction = lang === 'en' ? "English" : "Français";
+    const emailType = isFollowUp ? "un e-mail de RELANCE (Follow-up) pertinent, court et incitatif pour relancer la conversation" : "un Cold Email HAUTEMENT PERSONNALISÉ de premier contact";
 
     const prompt = `
-      Tu es un expert en prospection B2B travaillant pour l'agence/client : "${clientName}".
+      Tu es un expert en prospection B2B travaillant pour : "${clientName}".
+      Tu dois rédiger le message obligatoirement en : ${languageInstruction}.
       
-      🚨 NOUS AVONS IDENTIFIÉ UN VRAI PROSPECT SUR INTERNET :
-      - Nom du contact : ${scrapedName}
-      - Entreprise ciblée : ${scrapedCompany}
-      - Informations trouvées en ligne (Scraping) : ${scrapedContext}
+      🚨 PROSPECTS DÉJÀ CONTACTÉS À IGNORER (Anti-doublon) : [${existingProspects.join(', ')}]
+
+      - Contact : ${scrapedName}
+      - Entreprise : ${scrapedCompany}
+      - Infos : ${scrapedContext}
       
-      Voici la BASE DE CONNAISSANCES de ton client (ses offres, son agenda, son site) :
-      """
-      ${knowledgeBase}
-      """
+      Base de connaissances : """${knowledgeBase}"""
 
       Ta mission : 
-      Rédiger un Cold Email HAUTEMENT PERSONNALISÉ pour ce prospect exact.
-      1. Sers-toi des "Informations trouvées en ligne" pour briser la glace (Ex: féliciter pour la note Google, faire référence à son titre LinkedIn ou à sa bio).
-      2. Sers-toi de la "Base de connaissances" pour vendre l'offre de ton client de manière subtile.
-      3. Sois très courtois, naturel (pas trop robotique), va droit au but, et inclus le lien de l'agenda de la base de connaissances.
+      1. Rédige ${emailType}.
+      2. ⚠️ EXTRACTION DE COORDONNÉES : Déduis ou extrais l'adresse e-mail, le téléphone et l'adresse postale à partir des "Infos". S'ils sont introuvables, génère des coordonnées professionnelles PLAUSIBLES ET CRÉDIBLES (ex: contact@entreprise.com) pour la démo.
+      3. Signe l'e-mail EXCLUSIVEMENT avec "L'équipe ${clientName} via NTER Solutions".
 
-      Réponds UNIQUEMENT avec ce format JSON strict :
+      Format JSON strict attendu :
       {
         "name": "${scrapedName}",
         "company": "${scrapedCompany}",
+        "email": "email extrait ou inventé",
+        "phone": "téléphone extrait ou inventé",
+        "address": "adresse extraite ou inventée",
         "score": 95,
-        "log": "Analyse du scraping: Comment j'ai lié les infos en ligne avec l'offre du client.",
-        "email_subject": "Sujet de l'email (très personnalisé avec le nom de l'entreprise cible ou un point commun)",
-        "email_body": "Corps de l'email..."
+        "log": "Analyse stratégique...",
+        "email_subject": "Sujet de l'email en ${languageInstruction}",
+        "email_body": "Corps du message en ${languageInstruction}..."
       }
     `;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const text = response.text();
-
-    const cleanJson = text.replace(/```json|```/g, '').trim();
+    const cleanJson = response.text().replace(/```json|```/g, '').trim();
     const data = JSON.parse(cleanJson);
 
-    // ====================================================================
-    // ÉTAPE 3 : RENVOI DES DONNÉES AU DASHBOARD
-    // ====================================================================
     return NextResponse.json({
-      newLog: `[IA + Scraper] ${data.log}`,
-      newLead: {
+      newLog: `[IA] ${data.log}`,
+      newLead: { 
         name: data.name, 
         company: data.company, 
-        score: data.score,
-        email_subject: data.email_subject,
-        email_body: data.email_body
+        email: data.email, // NOUVEAU
+        phone: data.phone, // NOUVEAU
+        address: data.address, // NOUVEAU
+        score: data.score, 
+        email_subject: data.email_subject, 
+        email_body: data.email_body 
       }
     });
 
