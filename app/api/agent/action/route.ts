@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     let scrapedCompany = manualCompany || "";
     let scrapedContext = "";
 
+    // SCRAPING UNIQUEMENT SI CE N'EST PAS UNE GÉNÉRATION MANUELLE SPÉCIFIQUE
     if (!manualName && !manualCompany) {
         const isLocalBusiness = target.toLowerCase().includes('restaurant') || target.toLowerCase().includes('boulangerie') || target.toLowerCase().includes('hôtel') || target.toLowerCase().includes('boutique') || target.toLowerCase().includes('agence');
 
@@ -37,24 +38,35 @@ export async function POST(req: Request) {
                 }
             } catch (err) { console.error("Erreur Google Maps :", err); }
         } 
-        else if (!isLocalBusiness && process.env.PROXYCURL_API_KEY) {
+        else if (!isLocalBusiness && process.env.NINJAPEAR_API_KEY) {
+            // NOUVELLE LOGIQUE NINJAPEAR
             try {
-                const searchUrl = `https://nubela.co/proxycurl/api/v2/search/person?keyword=${encodeURIComponent(target)}&page_size=3`; 
-                const searchResponse = await fetch(searchUrl, { headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` } });
-                if (searchResponse.ok) {
-                    const searchData = await searchResponse.json();
-                    if (searchData.results && searchData.results.length > 0) {
-                        const linkedInUrl = searchData.results[0].profile_url;
-                        const profileResponse = await fetch(`https://nubela.co/proxycurl/api/v2/linkedin?url=${encodeURIComponent(linkedInUrl)}&use_cache=if-present`, { headers: { 'Authorization': `Bearer ${process.env.PROXYCURL_API_KEY}` } });
-                        if (profileResponse.ok) {
-                            const profileData = await profileResponse.json();
-                            scrapedName = profileData.full_name || "Contact B2B";
-                            scrapedCompany = profileData.experiences?.[0]?.company || target;
-                            scrapedContext = `Titre: ${profileData.headline}. Bio: ${profileData.summary?.substring(0, 200)}. Localisation: ${profileData.city || profileData.country || 'Inconnue'}`;
-                        }
+                // NinjaPear fonctionne de manière ultra-ciblée via un nom de domaine.
+                // On transforme intelligemment la "cible" en domaine potentiel (ex: "Shopify" -> "shopify.com")
+                let domain = target.includes('.') ? target : target.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
+                
+                // 1. Appel à NinjaPear pour obtenir les données de l'entreprise
+                const companyUrl = `https://nubela.co/api/v1/company/details?website=${encodeURIComponent(domain)}`; 
+                const companyResponse = await fetch(companyUrl, { headers: { 'Authorization': `Bearer ${process.env.NINJAPEAR_API_KEY}` } });
+                
+                if (companyResponse.ok) {
+                    const companyData = await companyResponse.json();
+                    scrapedCompany = companyData.name || domain; 
+                    
+                    // 2. Appel à NinjaPear pour trouver le profil d'un dirigeant (ex: CEO)
+                    const employeeUrl = `https://nubela.co/api/v1/employee/profile?employer_website=${encodeURIComponent(domain)}&role=CEO`;
+                    const employeeResponse = await fetch(employeeUrl, { headers: { 'Authorization': `Bearer ${process.env.NINJAPEAR_API_KEY}` } });
+                    
+                    if (employeeResponse.ok) {
+                        const employeeData = await employeeResponse.json();
+                        scrapedName = employeeData.full_name || "Direction";
+                        scrapedContext = `Industrie: ${companyData.industry || 'Tech'}. Employés: ${companyData.employee_count || 'N/A'}. HQ: ${companyData.headquarters || 'N/A'}. Profil CEO: ${employeeData.bio || 'Non spécifié'}.`;
+                    } else {
+                        scrapedName = "Direction";
+                        scrapedContext = `Industrie: ${companyData.industry || 'Tech'}. Employés: ${companyData.employee_count || 'N/A'}. HQ: ${companyData.headquarters || 'N/A'}.`;
                     }
                 }
-            } catch (err) { console.error("Erreur Proxycurl:", err); }
+            } catch (err) { console.error("Erreur NinjaPear:", err); }
         }
 
         if (!scrapedCompany) {
@@ -76,6 +88,7 @@ export async function POST(req: Request) {
       Tu dois rédiger le message obligatoirement en : ${languageInstruction}.
       
       🚨 PROSPECTS DÉJÀ CONTACTÉS À IGNORER (Anti-doublon) : [${existingProspects.join(', ')}]
+      Si le prospect ci-dessous est dans la liste, invente une autre entreprise fictive correspondant à la cible "${target}".
 
       - Contact : ${scrapedName}
       - Entreprise : ${scrapedCompany}
@@ -86,7 +99,7 @@ export async function POST(req: Request) {
       Ta mission : 
       1. Rédige ${emailType}.
       2. ⚠️ EXTRACTION DE COORDONNÉES : Déduis ou extrais l'adresse e-mail, le téléphone et l'adresse postale à partir des "Infos". S'ils sont introuvables, génère des coordonnées professionnelles PLAUSIBLES ET CRÉDIBLES (ex: contact@entreprise.com) pour la démo.
-      3. Signe l'e-mail EXCLUSIVEMENT avec "L'équipe ${clientName} via NTER Solutions".
+      3. ⚠️ SIGNATURE OBLIGATOIRE : Signe l'e-mail EXCLUSIVEMENT et EXACTEMENT avec "L'équipe ${clientName} via NTER Solutions". N'utilise jamais "[Votre nom]".
 
       Format JSON strict attendu :
       {
@@ -112,9 +125,9 @@ export async function POST(req: Request) {
       newLead: { 
         name: data.name, 
         company: data.company, 
-        email: data.email, // NOUVEAU
-        phone: data.phone, // NOUVEAU
-        address: data.address, // NOUVEAU
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
         score: data.score, 
         email_subject: data.email_subject, 
         email_body: data.email_body 

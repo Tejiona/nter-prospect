@@ -7,14 +7,14 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { to, subject, text, prospectName, clientName } = body;
+    const { to, subject, text, prospectName, clientName, isReport } = body;
 
     if (!to) {
       return NextResponse.json({ error: "Adresse email manquante" }, { status: 400 });
     }
 
-    // Le format officiel de la signature / expéditeur
-    const senderName = `L'équipe ${clientName} via NTER Solutions`;
+    // Si c'est un rapport, l'e-mail vient de T-Prospect. Sinon, il vient du client.
+    const senderName = isReport ? "T-Prospect" : `L'équipe ${clientName} via T-Prospect`;
 
     const data = await resend.emails.send({
       from: `${senderName} <solutions@ntersolutions.ca>`,
