@@ -1,5 +1,5 @@
 /* FICHIER: app/api/cron/route.ts */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // MODIFIÉ ICI
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 
@@ -8,17 +8,22 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) { // MODIFIÉ ICI (NextRequest)
   try {
-    // 1. SÉCURITÉ AMÉLIORÉE (Accepte le secret via Header OU via l'URL)
-    const url = new URL(req.url);
-    const secretParam = url.searchParams.get('secret');
+    // 1. SÉCURITÉ : MODE DIAGNOSTIC
+    const secretParam = req.nextUrl.searchParams.get('secret');
     const authHeader = req.headers.get('Authorization');
     
     if (process.env.CRON_SECRET) {
       const isValid = (secretParam === process.env.CRON_SECRET) || (authHeader === `Bearer ${process.env.CRON_SECRET}`);
+      
       if (!isValid) {
-        return new Response('Non autorisé', { status: 401 });
+        // SI ÇA BLOQUE, LE SERVEUR VA T'AFFICHER POURQUOI :
+        return NextResponse.json({ 
+            erreur: "Accès refusé", 
+            mot_de_passe_attendu_par_vercel: process.env.CRON_SECRET, 
+            mot_de_passe_que_tu_as_tape: secretParam 
+        }, { status: 401 });
       }
     }
 
