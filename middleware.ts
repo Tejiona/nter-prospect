@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  // 1. LE PASSE-DROIT POUR LE ROBOT CRON (Il passe sans mot de passe global)
-  if (req.nextUrl.pathname.startsWith('/api/cron')) {
+  // 1. LE PASSE-DROIT POUR LE ROBOT (NOUVEAU NOM DE LA ROUTE)
+  if (req.nextUrl.pathname.startsWith('/api/automate')) {
     return NextResponse.next();
   }
 
