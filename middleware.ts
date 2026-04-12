@@ -31,5 +31,5 @@ export function middleware(req: NextRequest) {
 
 // On demande au middleware de surveiller toutes les pages SAUF les images et fichiers techniques
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/automate).*)'],
 };
