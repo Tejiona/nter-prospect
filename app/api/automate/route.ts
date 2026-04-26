@@ -134,6 +134,7 @@ export async function GET(req: NextRequest) { // MODIFIÉ ICI (NextRequest)
                 text: textToSend.body,
               });
 
+              await supabase.from('clients').update({ reports_sent: (c.reports_sent || 0) + 1 }).eq('id', c.id);
               rapportsCount++;
             } catch (err) {
               console.error(`[Cron] Erreur envoi rapport client ID ${c.id}:`, err);

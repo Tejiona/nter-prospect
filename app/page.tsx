@@ -64,7 +64,7 @@ const TRANSLATIONS = {
     alert_email_sent: "E-mail envoyé avec succès !", alert_email_failed: "Échec de l'envoi.",
     btn_gen_msg: "Générer Message", btn_gen_followup: "Générer Relance",
     btn_save_msg: "Enregistrer", alert_client_no_email: "L'e-mail du client n'est pas renseigné.", alert_report_sent: "Rapport envoyé au client avec succès !",
-    report_edit_label: "Contenu du rapport (Modifiable)"
+    report_edit_label: "Contenu du rapport (Modifiable)", reports_sent_label: "Rapports envoyés"
   },
   en: {
     nav_dashboard: "Dashboard", nav_clients: "My Clients", nav_legal: "Legal & TOS",
@@ -119,7 +119,7 @@ const TRANSLATIONS = {
     alert_email_sent: "Email sent successfully!", alert_email_failed: "Failed to send email.",
     btn_gen_msg: "Gen Message", btn_gen_followup: "Gen Follow-up",
     btn_save_msg: "Save", alert_client_no_email: "Client email is missing.", alert_report_sent: "Report sent successfully!",
-    report_edit_label: "Report Content (Editable)"
+    report_edit_label: "Report Content (Editable)", reports_sent_label: "Reports sent"
   }
 };
 
@@ -375,7 +375,14 @@ export default function NterPlatform() {
             body: JSON.stringify({ to: activeClient.email, subject: `${t.generated_title} - ${activeClient.name}`, text: reportEmailBody, isReport: true })
         });
         const data = await response.json();
-        if (response.ok && data.success) { alert(t.alert_report_sent); setShowGeneratedReport(false); } else { alert(t.alert_email_failed); }
+        if (response.ok && data.success) {
+            const newCount = (activeClient.reports_sent || 0) + 1;
+            await supabase.from('clients').update({ reports_sent: newCount }).eq('id', activeClient.id);
+            const updatedClient = { ...activeClient, reports_sent: newCount };
+            setActiveClient(updatedClient);
+            setClients(clients.map((c: any) => c.id === activeClient.id ? updatedClient : c));
+            alert(t.alert_report_sent); setShowGeneratedReport(false);
+        } else { alert(t.alert_email_failed); }
     } catch (err) { alert(t.alert_email_failed); } finally { setIsSendingReport(false); }
   };
 
@@ -411,6 +418,7 @@ export default function NterPlatform() {
                       <p className="text-sm"><span className="text-slate-400">{t.company_label}</span> {activeClient.name}</p>
                       {activeClient.email && <p className="text-sm"><span className="text-slate-400">Email :</span> {activeClient.email}</p>}
                       <p className="text-sm"><span className="text-slate-400">{t.client_target} :</span> {activeClient.target}</p>
+                      <p className="text-sm flex items-center gap-2"><FileBarChart size={14} className="text-indigo-400" /> <span className="text-slate-400">{t.reports_sent_label} :</span> <span className="font-semibold text-indigo-300">{activeClient.reports_sent || 0}</span></p>
                       <div className="pt-3 border-t border-slate-700">
                         <p className="text-sm flex items-center gap-2"><Calendar size={14} className="text-blue-400"/> <span className="text-slate-400">{t.client_agenda} :</span> {activeClient.agendaurl || activeClient.agendaUrl}</p>
                         <p className="text-sm flex items-center gap-2 mt-2"><LinkIcon size={14} className="text-emerald-400"/> <span className="text-slate-400">{t.client_crm} :</span> {activeClient.crm}</p>
