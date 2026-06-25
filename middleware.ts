@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  if (req.nextUrl.pathname.startsWith('/api/automate')) {
+  if (req.nextUrl.pathname.startsWith('/api/automate') || req.nextUrl.pathname.startsWith('/api/webhook')) {
     return NextResponse.next();
   }
 
@@ -29,5 +29,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/automate).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/automate|api/webhook).*)'],
 };

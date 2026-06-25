@@ -10,13 +10,19 @@ import {
   Database, Eye, Mail, UserPlus, Pencil, Trash, Wand2, Save, FileEdit
 } from 'lucide-react';
 
+const PLANS: Record<string, { leads_per_month: number, price: string }> = {
+  none: { leads_per_month: 0, price: '-' },
+  starter: { leads_per_month: 500, price: '399$/mois' },
+  growth: { leads_per_month: 1500, price: '899$/mois' },
+};
+
 const TRANSLATIONS = {
   fr: {
     nav_dashboard: "Tableau de bord", nav_clients: "Mes Clients", nav_legal: "Légal & CGU",
     btn_generate: "Générer Lead IA", btn_generating: "Génération...", client_info: "Informations Client", client_target: "Cible IA",
     launch_agent: "Lancer l'Agent IA pour", client_agenda: "Disponibilité (Agenda)", client_crm: "Liaisons Logicielles",
     client_knowledge: "Base de connaissances de l'IA", 
-    table_prospect: "Prospect", table_contact1: "1er Contact", table_status: "Retour Prospect", table_followup: "Prochaine Relance", table_action: "Actions", 
+    table_prospect: "Prospect", table_contact1: "1er Contact", table_status: "Retour Prospect", table_followup: "Prochaine Relance", table_followup_count: "Relances", table_action: "Actions",
     status_pending: "En attente", status_accepted: "Accepté", status_refused: "Refusé",
     legal_title: "Mentions Légales & CGU", 
     legal_1_title: "1. Acceptation des conditions", legal_1_text: "En accédant ou en utilisant notre plateforme, vous acceptez ces conditions. T-Prospect agit en tant qu'outil B2B pour automatiser la prospection.",
@@ -43,15 +49,33 @@ const TRANSLATIONS = {
     agenda_label: "Agenda", crm_label: "CRM", no_context: "Aucun contexte renseigné.",
     no_prospects: "Aucun prospect généré.", client_label: "Client :", ai_analysis: "💡 Analyse IA",
     
-    // NOUVEAU: TRADUCTIONS COMPLÈTES DU TEXTE DU RAPPORT
     report_draft_intro: "Bonjour,\n\nVoici l'analyse détaillée de votre campagne de prospection pour",
-    report_draft_stats: "📊 STATISTIQUES :",
+    report_draft_stats: "📊 STATISTIQUES GÉNÉRALES :",
+    report_draft_contacts: "📬 ACTIVITÉ DE CONTACT :",
+    report_draft_contacts_made: "Contacts effectués (emails envoyés)",
+    report_draft_total_followups: "Relances totales effectuées",
+    report_draft_avg_followups: "Moyenne de relances par prospect",
+    report_draft_no_response: "Prospects sans retour",
+    report_draft_detail: "📋 DÉTAIL PAR PROSPECT :",
+    report_draft_detail_header: "Prospect | Statut | Relances | Retour",
+    report_draft_detail_separator: "---|---|---|---",
+    report_draft_status_yes: "✅ Oui",
+    report_draft_status_no: "❌ Non",
     report_draft_analysis: "💡 ANALYSE ET RECOMMANDATIONS :",
     report_draft_recommendation_1: "Le taux de conversion actuel est de",
     report_draft_recommendation_2: "%. Nous recommandons de relancer les",
     report_draft_recommendation_3: "prospects en attente dans les prochaines 48 heures pour maximiser les retours.",
+    report_draft_guidance: "🧭 ORIENTATIONS :",
+    report_draft_guidance_accepted: "→ Prospects ACCEPTÉS : Planifier un rendez-vous dans les 24h. Préparer une offre personnalisée et confirmer les disponibilités via l'agenda.",
+    report_draft_guidance_refused: "→ Prospects REFUSÉS : Archiver et ne pas relancer. Analyser les motifs de refus pour ajuster le ciblage et le message de prospection.",
+    report_draft_guidance_pending: "→ Prospects EN ATTENTE : Envoyer une relance personnalisée sous 48h. Varier l'approche (téléphone, email, LinkedIn) si plus de 2 relances déjà effectuées.",
     report_draft_outro: "Cordialement,\nL'équipe T-Prospect",
-    
+    kpi_contacted: "Contactés", kpi_total_followups: "Total Relances", kpi_no_response: "Sans retour",
+    plan_label: "Forfait souscrit", plan_none: "Aucun forfait", plan_starter: "Starter", plan_growth: "Growth",
+    plan_leads_month: "leads/mois", plan_leads_day: "leads/jour", plan_progress: "Progression ce mois",
+    plan_quota_reached: "Quota mensuel atteint",
+    form_plan: "Forfait de prospection",
+
     subject_label: "Sujet :", message_label: "Message :", btn_close: "Fermer", alert_config_saved: "Configuration enregistrée pour ce client !",
     alert_ai_error: "Impossible de contacter l'IA.",
     btn_manual_prospect: "+ Prospect Manuel", add_prospect_title: "Ajouter un Prospect",
@@ -71,7 +95,7 @@ const TRANSLATIONS = {
     btn_generate: "Generate AI Lead", btn_generating: "Generating...", client_info: "Client Information", client_target: "AI Target",
     launch_agent: "Launch AI Agent for", client_agenda: "Availability (Calendar)", client_crm: "Software Integrations",
     client_knowledge: "AI Knowledge Base", 
-    table_prospect: "Prospect", table_contact1: "1st Contact", table_status: "Prospect Feedback", table_followup: "Next Follow-up", table_action: "Actions", 
+    table_prospect: "Prospect", table_contact1: "1st Contact", table_status: "Prospect Feedback", table_followup: "Next Follow-up", table_followup_count: "Follow-ups", table_action: "Actions",
     status_pending: "Pending", status_accepted: "Accepted", status_refused: "Refused",
     legal_title: "Legal Notices & TOS", 
     legal_1_title: "1. Acceptance of Terms", legal_1_text: "By accessing or using our platform, you agree to these terms. T-Prospect acts as a B2B tool to automate prospecting.",
@@ -98,15 +122,33 @@ const TRANSLATIONS = {
     agenda_label: "Calendar", crm_label: "CRM", no_context: "No context provided.",
     no_prospects: "No prospects generated.", client_label: "Client:", ai_analysis: "💡 AI Analysis",
     
-    // NOUVEAU: TRADUCTIONS COMPLÈTES DU TEXTE DU RAPPORT
     report_draft_intro: "Hello,\n\nHere is the detailed analysis of your prospecting campaign for",
-    report_draft_stats: "📊 STATISTICS:",
+    report_draft_stats: "📊 GENERAL STATISTICS:",
+    report_draft_contacts: "📬 CONTACT ACTIVITY:",
+    report_draft_contacts_made: "Contacts made (emails sent)",
+    report_draft_total_followups: "Total follow-ups sent",
+    report_draft_avg_followups: "Average follow-ups per prospect",
+    report_draft_no_response: "Prospects with no response",
+    report_draft_detail: "📋 PROSPECT BREAKDOWN:",
+    report_draft_detail_header: "Prospect | Status | Follow-ups | Response",
+    report_draft_detail_separator: "---|---|---|---",
+    report_draft_status_yes: "✅ Yes",
+    report_draft_status_no: "❌ No",
     report_draft_analysis: "💡 ANALYSIS AND RECOMMENDATIONS:",
     report_draft_recommendation_1: "The current conversion rate is",
     report_draft_recommendation_2: "%. We recommend following up with the",
     report_draft_recommendation_3: "pending prospects within the next 48 hours to maximize responses.",
+    report_draft_guidance: "🧭 GUIDANCE:",
+    report_draft_guidance_accepted: "→ ACCEPTED prospects: Schedule a meeting within 24h. Prepare a tailored offer and confirm availability via calendar.",
+    report_draft_guidance_refused: "→ REFUSED prospects: Archive and do not follow up again. Analyze refusal reasons to adjust targeting and messaging.",
+    report_draft_guidance_pending: "→ PENDING prospects: Send a personalized follow-up within 48h. Vary the approach (phone, email, LinkedIn) if more than 2 follow-ups have already been sent.",
     report_draft_outro: "Best regards,\nThe T-Prospect Team",
-    
+    kpi_contacted: "Contacted", kpi_total_followups: "Total Follow-ups", kpi_no_response: "No Response",
+    plan_label: "Subscribed Plan", plan_none: "No plan", plan_starter: "Starter", plan_growth: "Growth",
+    plan_leads_month: "leads/month", plan_leads_day: "leads/day", plan_progress: "Progress this month",
+    plan_quota_reached: "Monthly quota reached",
+    form_plan: "Prospecting Plan",
+
     subject_label: "Subject:", message_label: "Message:", btn_close: "Close", alert_config_saved: "Client configuration saved!",
     alert_ai_error: "Unable to contact AI.",
     btn_manual_prospect: "+ Manual Prospect", add_prospect_title: "Add Prospect",
@@ -134,7 +176,7 @@ export default function NterPlatform() {
 
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditClientModal, setShowEditClientModal] = useState(false);
-  const [clientFormData, setClientFormData] = useState({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '' });
+  const [clientFormData, setClientFormData] = useState({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' });
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingLead, setIsGeneratingLead] = useState(false);
 
@@ -154,7 +196,7 @@ export default function NterPlatform() {
   const [reportDayOfMonth, setReportDayOfMonth] = useState('1'); 
   
   const [showGeneratedReport, setShowGeneratedReport] = useState(false);
-  const [reportStats, setReportStats] = useState({ total: 0, accepted: 0, pending: 0, refused: 0 });
+  const [reportStats, setReportStats] = useState({ total: 0, accepted: 0, pending: 0, refused: 0, contacted: 0, totalFollowups: 0, noResponse: 0 });
   const [reportEmailBody, setReportEmailBody] = useState(""); 
   const [isSendingReport, setIsSendingReport] = useState(false); 
 
@@ -171,16 +213,16 @@ export default function NterPlatform() {
     e.preventDefault(); setIsSaving(true);
     if (clientFormData.id) {
         const { data, error } = await supabase.from('clients').update({
-            name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base
+            name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan
         }).eq('id', clientFormData.id).select('*, prospects(*)');
         if (!error && data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); setShowEditClientModal(false); }
     } else {
         const { data, error } = await supabase.from('clients').insert([
-            { name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base }
+            { name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan }
         ]).select('*, prospects(*)');
         if (!error && data) { setClients([...clients, data[0]]); setActiveClient(data[0]); setShowAddClientModal(false); }
     }
-    setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '' }); setIsSaving(false);
+    setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setIsSaving(false);
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -294,7 +336,13 @@ export default function NterPlatform() {
         body: JSON.stringify({ to: prospect.email, subject: prospect.email_subject, text: prospect.email_body, prospectName: prospect.name, clientName: activeClient.name, isReport: false })
       });
       const data = await response.json();
-      if (response.ok && data.success) { alert(t.alert_email_sent); } else { alert(t.alert_email_failed); }
+      if (response.ok && data.success) {
+        const newCount = (prospect.followup_count || 0) + 1;
+        await supabase.from('prospects').update({ followup_count: newCount }).eq('id', prospect.id);
+        const updatedClient = { ...activeClient, prospects: activeClient.prospects.map((p: any) => p.id === prospect.id ? { ...p, followup_count: newCount } : p) };
+        setActiveClient(updatedClient); setClients(clients.map((c: any) => c.id === activeClient.id ? updatedClient : c));
+        alert(t.alert_email_sent);
+      } else { alert(t.alert_email_failed); }
     } catch (error) { alert(t.alert_email_failed); } finally { setSendingEmailId(null); }
   };
 
@@ -337,28 +385,49 @@ export default function NterPlatform() {
     setIsSaving(false);
   };
 
-  // NOUVEAU: TRADUCTION DYNAMIQUE DU BROUILLON DE RAPPORT
   const generateAndShowReportData = (client: any) => {
     const prospects = client.prospects || [];
     const total = prospects.length;
     const accepted = prospects.filter((p: any) => p.status === 'accepted').length;
     const pending = prospects.filter((p: any) => p.status === 'pending').length;
     const refused = prospects.filter((p: any) => p.status === 'refused').length;
-    
-    setReportStats({ total, accepted, pending, refused });
+    const contacted = prospects.filter((p: any) => (p.followup_count || 0) > 0).length;
+    const totalFollowups = prospects.reduce((sum: number, p: any) => sum + (p.followup_count || 0), 0);
+    const noResponse = prospects.filter((p: any) => p.status === 'pending' && (p.followup_count || 0) > 0).length;
+    const avgFollowups = total > 0 ? (totalFollowups / total).toFixed(1) : '0';
+
+    setReportStats({ total, accepted, pending, refused, contacted, totalFollowups, noResponse });
 
     const rate = total > 0 ? Math.round((accepted / total) * 100) : 0;
-    
-    const draft = `${t.report_draft_intro} ${client.name} :\n\n${t.report_draft_stats}\n- ${t.kpi_total} : ${total}\n- ${t.kpi_accepted} : ${accepted}\n- ${t.kpi_pending} : ${pending}\n- ${t.kpi_refused} : ${refused}\n\n${t.report_draft_analysis}\n${t.report_draft_recommendation_1} ${rate}${t.report_draft_recommendation_2} ${pending} ${t.report_draft_recommendation_3}\n\n${t.report_draft_outro}`;
-    
+
+    const prospectLines = prospects.map((p: any) => {
+      const fc = p.followup_count || 0;
+      const statusLabel = p.status === 'accepted' ? t.kpi_accepted : p.status === 'refused' ? t.kpi_refused : t.kpi_pending;
+      const hasResponse = p.status === 'accepted' || p.status === 'refused' ? t.report_draft_status_yes : t.report_draft_status_no;
+      return `${p.name} | ${statusLabel} | ${fc} | ${hasResponse}`;
+    }).join('\n');
+
+    const guidanceParts = [];
+    if (accepted > 0) guidanceParts.push(t.report_draft_guidance_accepted);
+    if (refused > 0) guidanceParts.push(t.report_draft_guidance_refused);
+    if (pending > 0) guidanceParts.push(t.report_draft_guidance_pending);
+
+    const draft = `${t.report_draft_intro} ${client.name} :\n\n` +
+      `${t.report_draft_stats}\n- ${t.kpi_total} : ${total}\n- ${t.kpi_accepted} : ${accepted}\n- ${t.kpi_pending} : ${pending}\n- ${t.kpi_refused} : ${refused}\n\n` +
+      `${t.report_draft_contacts}\n- ${t.report_draft_contacts_made} : ${contacted}\n- ${t.report_draft_total_followups} : ${totalFollowups}\n- ${t.report_draft_avg_followups} : ${avgFollowups}\n- ${t.report_draft_no_response} : ${noResponse}\n\n` +
+      `${t.report_draft_detail}\n${t.report_draft_detail_header}\n${t.report_draft_detail_separator}\n${prospectLines}\n\n` +
+      `${t.report_draft_analysis}\n${t.report_draft_recommendation_1} ${rate}${t.report_draft_recommendation_2} ${pending} ${t.report_draft_recommendation_3}\n\n` +
+      `${t.report_draft_guidance}\n${guidanceParts.join('\n')}\n\n` +
+      `${t.report_draft_outro}`;
+
     setReportEmailBody(draft);
     setShowGeneratedReport(true);
   };
 
   const downloadCSV = () => { 
     const prospects = activeClient.prospects || [];
-    const headers = ["Nom du Prospect", "Email", "Téléphone", "Adresse", "1er Contact", "Statut", "Prochaine Relance"];
-    const rows = prospects.map((p: any) => `"${p.name}","${p.email || ''}","${p.phone || ''}","${p.address || ''}","${p.firstcontact || p.firstContact || ''}","${p.status}","${p.followup || p.followUp || ''}"`);
+    const headers = ["Nom du Prospect", "Email", "Téléphone", "Adresse", "1er Contact", "Statut", "Prochaine Relance", "Nb Relances"];
+    const rows = prospects.map((p: any) => `"${p.name}","${p.email || ''}","${p.phone || ''}","${p.address || ''}","${p.firstcontact || p.firstContact || ''}","${p.status}","${p.followup || p.followUp || ''}","${p.followup_count || 0}"`);
     const csvContent = "\uFEFF" + headers.join(",") + "\n" + rows.join("\n"); 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a"); link.href = URL.createObjectURL(blob);
@@ -389,7 +458,7 @@ export default function NterPlatform() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-50 font-sans flex flex-col md:flex-row relative">
       <aside className="w-full md:w-64 border-r border-slate-700 bg-slate-800/50 p-4 flex flex-col z-10">
-        <div className="flex items-center gap-3 mb-8 px-2 mt-4"><div className="bg-indigo-600 p-2 rounded-lg"><LayoutDashboard size={20} /></div><h1 className="text-xl font-bold tracking-tight">T-<span className="text-indigo-400">Prospect</span></h1></div>
+        <div className="flex items-center gap-3 mb-8 px-2 mt-4"><img src="/logo.png" alt="Tejiona AI Solutions" className="w-10 h-10 rounded-lg object-contain" /><h1 className="text-xl font-bold tracking-tight">T-<span className="text-indigo-400">Prospect</span></h1></div>
         <nav className="flex-1 space-y-2">
           <button onClick={() => setActiveTab('clients')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'clients' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:bg-slate-800'}`}><Briefcase size={18} /> {t.nav_clients}</button>
           <button onClick={() => setActiveTab('legal')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'legal' ? 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30' : 'text-slate-400 hover:bg-slate-800'}`}><FileText size={18} /> {t.nav_legal}</button>
@@ -402,7 +471,7 @@ export default function NterPlatform() {
           <div className="space-y-6 animate-in fade-in">
             <div className="flex gap-4 overflow-x-auto pb-4 border-b border-slate-700 items-center">
               {isLoading ? <span className="text-slate-400 text-sm flex items-center gap-2"><Loader2 size={16} className="animate-spin"/> {t.loading}</span> : clients.map(client => (<button key={client.id} onClick={() => setActiveClient(client)} className={`px-4 py-2 rounded-full text-sm font-semibold border whitespace-nowrap ${activeClient?.id === client.id ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'}`}>{client.name}</button>))}
-              <button onClick={() => { setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '' }); setShowAddClientModal(true); }} className="px-4 py-2 rounded-full text-sm font-semibold border border-dashed border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 whitespace-nowrap"><PlusCircle size={16} /> {t.btn_new_client}</button>
+              <button onClick={() => { setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setShowAddClientModal(true); }} className="px-4 py-2 rounded-full text-sm font-semibold border border-dashed border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 whitespace-nowrap"><PlusCircle size={16} /> {t.btn_new_client}</button>
             </div>
 
             {activeClient && (
@@ -410,7 +479,7 @@ export default function NterPlatform() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col relative group">
                     <div className="absolute top-4 right-4 flex gap-2 opacity-50 hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setClientFormData({ id: activeClient.id, name: activeClient.name || '', email: activeClient.email || '', target: activeClient.target || '', agendaUrl: activeClient.agendaurl || activeClient.agendaUrl || '', crm: activeClient.crm || '', knowledge_base: activeClient.knowledge_base || '' }); setShowEditClientModal(true); }} className="p-2 bg-slate-700 hover:bg-indigo-600 rounded text-white" title={t.btn_edit}><Pencil size={14} /></button>
+                        <button onClick={() => { setClientFormData({ id: activeClient.id, name: activeClient.name || '', email: activeClient.email || '', target: activeClient.target || '', agendaUrl: activeClient.agendaurl || activeClient.agendaUrl || '', crm: activeClient.crm || '', knowledge_base: activeClient.knowledge_base || '', plan: activeClient.plan || 'none' }); setShowEditClientModal(true); }} className="p-2 bg-slate-700 hover:bg-indigo-600 rounded text-white" title={t.btn_edit}><Pencil size={14} /></button>
                         <button onClick={() => handleDeleteClient(activeClient.id)} className="p-2 bg-slate-700 hover:bg-red-600 rounded text-white" title={t.btn_delete}><Trash size={14} /></button>
                     </div>
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Briefcase size={18} className="text-indigo-400"/> {t.client_info}</h2>
@@ -419,6 +488,34 @@ export default function NterPlatform() {
                       {activeClient.email && <p className="text-sm"><span className="text-slate-400">Email :</span> {activeClient.email}</p>}
                       <p className="text-sm"><span className="text-slate-400">{t.client_target} :</span> {activeClient.target}</p>
                       <p className="text-sm flex items-center gap-2"><FileBarChart size={14} className="text-indigo-400" /> <span className="text-slate-400">{t.reports_sent_label} :</span> <span className="font-semibold text-indigo-300">{activeClient.reports_sent || 0}</span></p>
+                      {(() => {
+                        const clientPlan = PLANS[activeClient.plan] || PLANS.none;
+                        const planName = activeClient.plan === 'growth' ? t.plan_growth : activeClient.plan === 'starter' ? t.plan_starter : t.plan_none;
+                        const now = new Date();
+                        const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+                        const leadsThisMonth = (activeClient.prospects || []).filter((p: any) => (p.firstcontact || '') >= monthStart).length;
+                        const monthlyQuota = clientPlan.leads_per_month;
+                        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                        const dailyQuota = monthlyQuota > 0 ? Math.ceil(monthlyQuota / daysInMonth) : 0;
+                        const pct = monthlyQuota > 0 ? Math.min(100, Math.round((leadsThisMonth / monthlyQuota) * 100)) : 0;
+                        return (
+                          <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 mt-1">
+                            <p className="text-sm flex items-center gap-2 mb-2"><Globe size={14} className="text-cyan-400" /> <span className="text-slate-400">{t.plan_label} :</span> <span className="font-bold text-cyan-300">{planName}</span> {monthlyQuota > 0 && <span className="text-xs text-slate-500">({clientPlan.price})</span>}</p>
+                            {monthlyQuota > 0 && (
+                              <>
+                                <div className="flex justify-between text-xs text-slate-400 mb-1">
+                                  <span>{monthlyQuota} {t.plan_leads_month} · {dailyQuota} {t.plan_leads_day}</span>
+                                  <span>{t.plan_progress} : {leadsThisMonth}/{monthlyQuota}</span>
+                                </div>
+                                <div className="w-full bg-slate-700 rounded-full h-2">
+                                  <div className={`h-2 rounded-full transition-all ${pct >= 100 ? 'bg-emerald-500' : pct >= 75 ? 'bg-yellow-500' : 'bg-cyan-500'}`} style={{ width: `${pct}%` }} />
+                                </div>
+                                {pct >= 100 && <p className="text-xs text-emerald-400 mt-1 font-medium">{t.plan_quota_reached}</p>}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                       <div className="pt-3 border-t border-slate-700">
                         <p className="text-sm flex items-center gap-2"><Calendar size={14} className="text-blue-400"/> <span className="text-slate-400">{t.client_agenda} :</span> {activeClient.agendaurl || activeClient.agendaUrl}</p>
                         <p className="text-sm flex items-center gap-2 mt-2"><LinkIcon size={14} className="text-emerald-400"/> <span className="text-slate-400">{t.client_crm} :</span> {activeClient.crm}</p>
@@ -450,12 +547,13 @@ export default function NterPlatform() {
                           <th className="px-6 py-3">Contact Info</th>
                           <th className="px-6 py-3">{t.table_status}</th>
                           <th className="px-6 py-3">{t.table_followup}</th>
+                          <th className="px-6 py-3 text-center">{t.table_followup_count}</th>
                           <th className="px-6 py-3 text-right">{t.table_action}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {!activeClient.prospects || activeClient.prospects.length === 0 ? (
-                          <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-500 italic">{t.no_prospects}</td></tr>
+                          <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-500 italic">{t.no_prospects}</td></tr>
                         ) : (
                           activeClient.prospects.map((prospect: any) => {
                             const todayStr = new Date().toISOString().split('T')[0];
@@ -477,7 +575,8 @@ export default function NterPlatform() {
                                 {prospect.status === 'pending' && <span className="text-yellow-400 flex items-center gap-1"><Clock size={14}/>{t.status_pending}</span>}
                               </td>
                               <td className="px-6 py-4 font-medium"><span className={isFollowUpDue ? 'text-indigo-400' : 'text-slate-400'}>{followupStr || "-"}</span></td>
-                              
+                              <td className="px-6 py-4 text-center"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-700 text-xs font-bold text-slate-200">{prospect.followup_count || 0}</span></td>
+
                               <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                                 <div className="opacity-0 group-hover:opacity-100 flex gap-2 transition-opacity mr-2">
                                     <button onClick={() => openEditProspect(prospect)} className="p-1.5 bg-slate-700 hover:bg-indigo-600 rounded text-white" title={t.btn_edit}><Pencil size={14} /></button>
@@ -525,7 +624,7 @@ export default function NterPlatform() {
               <section><h3 className="text-white font-semibold mb-2">{t.legal_3_title}</h3><p>{t.legal_3_text}</p></section>
               <section><h3 className="text-white font-semibold mb-2">{t.legal_4_title}</h3><p>{t.legal_4_text}</p></section>
               <section><h3 className="text-white font-semibold mb-2">{t.legal_5_title}</h3><p>{t.legal_5_text}</p></section>
-              <div className="mt-12 pt-6 border-t border-slate-700 text-center text-slate-500 text-xs font-mono">{t.legal_copyright}</div>
+              <div className="mt-12 pt-6 border-t border-slate-700 text-center text-slate-500 text-xs font-mono flex flex-col items-center gap-3"><img src="/logo.png" alt="Tejiona AI Solutions" className="w-16 h-16 object-contain opacity-60" />{t.legal_copyright}</div>
             </div>
           </div>
         )}
@@ -541,6 +640,13 @@ export default function NterPlatform() {
                 <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_c_email}</label><input type="email" value={clientFormData.email} onChange={e => setClientFormData({...clientFormData, email: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" placeholder="ex: contact@client.com"/></div>
               </div>
               
+              <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_plan}</label>
+                <select value={clientFormData.plan} onChange={e => setClientFormData({...clientFormData, plan: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500">
+                  <option value="none">{t.plan_none}</option>
+                  <option value="starter">{t.plan_starter} — 500 {t.plan_leads_month} (399$/mois)</option>
+                  <option value="growth">{t.plan_growth} — 1500 {t.plan_leads_month} (899$/mois)</option>
+                </select>
+              </div>
               <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_target}</label><input required type="text" value={clientFormData.target} onChange={e => setClientFormData({...clientFormData, target: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.agenda_label}</label><input type="text" value={clientFormData.agendaUrl} onChange={e => setClientFormData({...clientFormData, agendaUrl: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
@@ -583,7 +689,7 @@ export default function NterPlatform() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center items-center p-4 animate-in fade-in duration-200">
           <div className="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col h-[85vh]">
             <div className="flex justify-between items-center p-5 border-b border-slate-700 bg-slate-800">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><Mail size={18} className="text-indigo-400"/> {t.email_title}</h3>
+              <h3 className="text-lg font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="Tejiona" className="w-7 h-7 object-contain" /> {t.email_title}</h3>
               <button onClick={() => setSelectedEmail(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-6 bg-slate-900 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
@@ -697,18 +803,23 @@ export default function NterPlatform() {
           <div className="bg-slate-800 border border-slate-600 rounded-xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col h-[90vh]">
             <div className="flex justify-between items-center p-6 border-b border-slate-700 bg-gradient-to-r from-slate-800 to-indigo-900/20">
               <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2"><FileBarChart className="text-indigo-400" /> {t.generated_title}</h3>
+                <h3 className="text-xl font-bold text-white flex items-center gap-2"><img src="/logo.png" alt="Tejiona" className="w-8 h-8 object-contain" /> {t.generated_title}</h3>
                 <p className="text-slate-400 text-sm mt-1">{t.client_label} {activeClient?.name}</p>
               </div>
               <button onClick={() => setShowGeneratedReport(false)} className="text-slate-400 hover:text-white bg-slate-900/50 p-2 rounded-full"><X size={20} /></button>
             </div>
             
             <div className="p-6 overflow-y-auto space-y-6 flex-1 flex flex-col">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="bg-slate-900 border border-slate-700 p-4 rounded-lg text-center"><p className="text-xs text-slate-400 uppercase font-bold mb-1">{t.kpi_total}</p><p className="text-3xl font-bold text-white">{reportStats.total}</p></div>
                 <div className="bg-emerald-900/20 border border-emerald-700/50 p-4 rounded-lg text-center"><p className="text-xs text-emerald-400 uppercase font-bold mb-1">{t.kpi_accepted}</p><p className="text-3xl font-bold text-emerald-400">{reportStats.accepted}</p></div>
                 <div className="bg-yellow-900/20 border border-yellow-700/50 p-4 rounded-lg text-center"><p className="text-xs text-yellow-400 uppercase font-bold mb-1">{t.kpi_pending}</p><p className="text-3xl font-bold text-yellow-400">{reportStats.pending}</p></div>
                 <div className="bg-red-900/20 border border-red-700/50 p-4 rounded-lg text-center"><p className="text-xs text-red-400 uppercase font-bold mb-1">{t.kpi_refused}</p><p className="text-3xl font-bold text-red-400">{reportStats.refused}</p></div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-indigo-900/20 border border-indigo-700/50 p-3 rounded-lg text-center"><p className="text-xs text-indigo-400 uppercase font-bold mb-1">{t.kpi_contacted}</p><p className="text-2xl font-bold text-indigo-400">{reportStats.contacted}</p></div>
+                <div className="bg-cyan-900/20 border border-cyan-700/50 p-3 rounded-lg text-center"><p className="text-xs text-cyan-400 uppercase font-bold mb-1">{t.kpi_total_followups}</p><p className="text-2xl font-bold text-cyan-400">{reportStats.totalFollowups}</p></div>
+                <div className="bg-orange-900/20 border border-orange-700/50 p-3 rounded-lg text-center"><p className="text-xs text-orange-400 uppercase font-bold mb-1">{t.kpi_no_response}</p><p className="text-2xl font-bold text-orange-400">{reportStats.noResponse}</p></div>
               </div>
               
               <div className="flex-1 flex flex-col mt-4">
