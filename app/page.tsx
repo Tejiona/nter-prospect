@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Briefcase, FileText, Globe, 
   Play, Calendar, Link as LinkIcon, ShieldAlert, CheckCircle, XCircle, Clock,
   FileBarChart, X, Settings, PlusCircle, Loader2, Download, Send, CalendarDays,
-  Database, Eye, Mail, UserPlus, Pencil, Trash, Wand2, Save, FileEdit
+  Database, Eye, Mail, UserPlus, Pencil, Trash, Wand2, Save, FileEdit, RefreshCw
 } from 'lucide-react';
 
 const PLANS: Record<string, { leads_per_month: number, price: string }> = {
@@ -23,7 +23,7 @@ const TRANSLATIONS = {
     launch_agent: "Lancer l'Agent IA pour", client_agenda: "Disponibilité (Agenda)", client_crm: "Liaisons Logicielles",
     client_knowledge: "Base de connaissances de l'IA", 
     table_prospect: "Prospect", table_contact1: "1er Contact", table_status: "Retour Prospect", table_followup: "Prochaine Relance", table_followup_count: "Relances", table_action: "Actions",
-    status_pending: "En attente", status_accepted: "Accepté", status_refused: "Refusé",
+    status_pending: "En attente", status_contacted: "Contacté", status_followup: "Relancé", status_accepted: "Accepté", status_refused: "Refusé",
     legal_title: "Mentions Légales & CGU", 
     legal_1_title: "1. Acceptation des conditions", legal_1_text: "En accédant ou en utilisant notre plateforme, vous acceptez ces conditions. T-Prospect agit en tant qu'outil B2B pour automatiser la prospection.",
     legal_2_title: "2. Traitement des données et Sécurité", legal_2_text: "Nous traitons vos données conformément au RGPD et à la LPRPDE.",
@@ -39,8 +39,9 @@ const TRANSLATIONS = {
     day_mon: "Lundi", day_tue: "Mardi", day_wed: "Mercredi", day_thu: "Jeudi", day_fri: "Vendredi", day_sat: "Samedi", day_sun: "Dimanche",
     btn_save: "Enregistrer la configuration", btn_generate_now: "Générer le rapport", btn_cancel: "Annuler",
     btn_new_client: "+ Nouveau Client", add_client_title: "Ajouter un client", form_name: "Nom de l'entreprise",
-    form_c_email: "Email du client (pour rapports)", 
-    form_target: "Cible de prospection (IA)", form_agenda: "Lien de l'agenda", form_crm: "CRM utilisé", 
+    form_c_email: "Email du client (pour rapports)",
+    form_website: "Site web du client", form_detect_target: "Détecter", form_detecting: "Analyse...",
+    form_target: "Cible de prospection (IA)", form_agenda: "Lien de l'agenda", form_crm: "CRM utilisé",
     form_knowledge: "Contexte, descriptif, offres", btn_add: "Ajouter",
     generated_title: "Rapport de Campagne", kpi_total: "Total Prospects", kpi_accepted: "Rendez-vous", kpi_pending: "En attente", kpi_refused: "Refusés",
     btn_download_csv: "Télécharger (CSV)", btn_send_email: "Envoyer le rapport", 
@@ -69,7 +70,7 @@ const TRANSLATIONS = {
     report_draft_guidance_accepted: "→ Prospects ACCEPTÉS : Planifier un rendez-vous dans les 24h. Préparer une offre personnalisée et confirmer les disponibilités via l'agenda.",
     report_draft_guidance_refused: "→ Prospects REFUSÉS : Archiver et ne pas relancer. Analyser les motifs de refus pour ajuster le ciblage et le message de prospection.",
     report_draft_guidance_pending: "→ Prospects EN ATTENTE : Envoyer une relance personnalisée sous 48h. Varier l'approche (téléphone, email, LinkedIn) si plus de 2 relances déjà effectuées.",
-    report_draft_outro: "Cordialement,\nL'équipe T-Prospect",
+    report_draft_outro: "Cordialement,\nL'équipe Tejiona AI Solutions\nsolutions@tejiona.com",
     kpi_contacted: "Contactés", kpi_total_followups: "Total Relances", kpi_no_response: "Sans retour",
     plan_label: "Forfait souscrit", plan_none: "Aucun forfait", plan_starter: "Starter", plan_growth: "Growth",
     plan_leads_month: "leads/mois", plan_leads_day: "leads/jour", plan_progress: "Progression ce mois",
@@ -96,7 +97,7 @@ const TRANSLATIONS = {
     launch_agent: "Launch AI Agent for", client_agenda: "Availability (Calendar)", client_crm: "Software Integrations",
     client_knowledge: "AI Knowledge Base", 
     table_prospect: "Prospect", table_contact1: "1st Contact", table_status: "Prospect Feedback", table_followup: "Next Follow-up", table_followup_count: "Follow-ups", table_action: "Actions",
-    status_pending: "Pending", status_accepted: "Accepted", status_refused: "Refused",
+    status_pending: "Pending", status_contacted: "Contacted", status_followup: "Follow-up", status_accepted: "Accepted", status_refused: "Refused",
     legal_title: "Legal Notices & TOS", 
     legal_1_title: "1. Acceptance of Terms", legal_1_text: "By accessing or using our platform, you agree to these terms. T-Prospect acts as a B2B tool to automate prospecting.",
     legal_2_title: "2. Data Processing and Security", legal_2_text: "We process data in accordance with GDPR and PIPEDA.",
@@ -113,6 +114,7 @@ const TRANSLATIONS = {
     btn_save: "Save configuration", btn_generate_now: "Generate report", btn_cancel: "Cancel",
     btn_new_client: "+ New Client", add_client_title: "Add a Client", form_name: "Company Name",
     form_c_email: "Client Email (for reports)", 
+    form_website: "Client Website", form_detect_target: "Detect", form_detecting: "Analyzing...",
     form_target: "Prospecting Target", form_agenda: "Calendar Link", form_crm: "CRM Used", 
     form_knowledge: "Context, offers", btn_add: "Add",
     generated_title: "Campaign Report", kpi_total: "Total Prospects", kpi_accepted: "Meetings", kpi_pending: "Pending", kpi_refused: "Refused",
@@ -142,7 +144,7 @@ const TRANSLATIONS = {
     report_draft_guidance_accepted: "→ ACCEPTED prospects: Schedule a meeting within 24h. Prepare a tailored offer and confirm availability via calendar.",
     report_draft_guidance_refused: "→ REFUSED prospects: Archive and do not follow up again. Analyze refusal reasons to adjust targeting and messaging.",
     report_draft_guidance_pending: "→ PENDING prospects: Send a personalized follow-up within 48h. Vary the approach (phone, email, LinkedIn) if more than 2 follow-ups have already been sent.",
-    report_draft_outro: "Best regards,\nThe T-Prospect Team",
+    report_draft_outro: "Best regards,\nThe Tejiona AI Solutions Team\nsolutions@tejiona.com",
     kpi_contacted: "Contacted", kpi_total_followups: "Total Follow-ups", kpi_no_response: "No Response",
     plan_label: "Subscribed Plan", plan_none: "No plan", plan_starter: "Starter", plan_growth: "Growth",
     plan_leads_month: "leads/month", plan_leads_day: "leads/day", plan_progress: "Progress this month",
@@ -176,9 +178,10 @@ export default function NterPlatform() {
 
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [showEditClientModal, setShowEditClientModal] = useState(false);
-  const [clientFormData, setClientFormData] = useState({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' });
+  const [clientFormData, setClientFormData] = useState({ id: null, name: '', email: '', website: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' });
   const [isSaving, setIsSaving] = useState(false);
   const [isGeneratingLead, setIsGeneratingLead] = useState(false);
+  const [isDetectingTarget, setIsDetectingTarget] = useState(false);
 
   const [showAddProspectModal, setShowAddProspectModal] = useState(false);
   const [showEditProspectModal, setShowEditProspectModal] = useState(false);
@@ -209,20 +212,33 @@ export default function NterPlatform() {
     setIsLoading(false);
   };
 
+  const handleDetectTarget = async () => {
+    if (!clientFormData.website) return;
+    setIsDetectingTarget(true);
+    try {
+      const res = await fetch('/api/detect-target', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ website: clientFormData.website, lang })
+      });
+      const data = await res.json();
+      if (data.target) setClientFormData({ ...clientFormData, target: data.target });
+    } catch { /* ignore */ } finally { setIsDetectingTarget(false); }
+  };
+
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault(); setIsSaving(true);
     if (clientFormData.id) {
         const { data, error } = await supabase.from('clients').update({
-            name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan
+            name: clientFormData.name, email: clientFormData.email, website: clientFormData.website, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan
         }).eq('id', clientFormData.id).select('*, prospects(*)');
         if (!error && data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); setShowEditClientModal(false); }
     } else {
         const { data, error } = await supabase.from('clients').insert([
-            { name: clientFormData.name, email: clientFormData.email, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan }
+            { name: clientFormData.name, email: clientFormData.email, website: clientFormData.website, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan }
         ]).select('*, prospects(*)');
         if (!error && data) { setClients([...clients, data[0]]); setActiveClient(data[0]); setShowAddClientModal(false); }
     }
-    setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setIsSaving(false);
+    setClientFormData({ id: null, name: '', email: '', website: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setIsSaving(false);
   };
 
   const handleDeleteClient = async (id: string) => {
@@ -274,7 +290,11 @@ export default function NterPlatform() {
       if (aiData.newLead) {
         const leadName = `${aiData.newLead.name} (${aiData.newLead.company})`;
         const today = new Date().toISOString().split('T')[0];
-        const followUpDate = new Date(); followUpDate.setDate(followUpDate.getDate() + 3);
+        const followUpDate = new Date();
+        const daysAhead = 5 + Math.floor(Math.random() * 5);
+        followUpDate.setDate(followUpDate.getDate() + daysAhead);
+        if (followUpDate.getDay() === 0) followUpDate.setDate(followUpDate.getDate() + 1);
+        if (followUpDate.getDay() === 6) followUpDate.setDate(followUpDate.getDate() + 2);
         const followUpStr = followUpDate.toISOString().split('T')[0];
 
         const { data: dbData, error } = await supabase.from('prospects').insert([
@@ -333,13 +353,16 @@ export default function NterPlatform() {
     try {
       const response = await fetch('/api/send-email', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: prospect.email, subject: prospect.email_subject, text: prospect.email_body, prospectName: prospect.name, clientName: activeClient.name, isReport: false })
+        body: JSON.stringify({ to: prospect.email, subject: prospect.email_subject, text: prospect.email_body, senderName: activeClient.name })
       });
       const data = await response.json();
       if (response.ok && data.success) {
         const newCount = (prospect.followup_count || 0) + 1;
-        await supabase.from('prospects').update({ followup_count: newCount }).eq('id', prospect.id);
-        const updatedClient = { ...activeClient, prospects: activeClient.prospects.map((p: any) => p.id === prospect.id ? { ...p, followup_count: newCount } : p) };
+        let newStatus: string;
+        if (newCount === 1) { newStatus = 'contacted'; }
+        else { const followupNum = newCount - 1; newStatus = followupNum > 5 ? 'refused' : `followup_${followupNum}`; }
+        await supabase.from('prospects').update({ followup_count: newCount, status: newStatus }).eq('id', prospect.id);
+        const updatedClient = { ...activeClient, prospects: activeClient.prospects.map((p: any) => p.id === prospect.id ? { ...p, followup_count: newCount, status: newStatus } : p) };
         setActiveClient(updatedClient); setClients(clients.map((c: any) => c.id === activeClient.id ? updatedClient : c));
         alert(t.alert_email_sent);
       } else { alert(t.alert_email_failed); }
@@ -391,9 +414,9 @@ export default function NterPlatform() {
     const accepted = prospects.filter((p: any) => p.status === 'accepted').length;
     const pending = prospects.filter((p: any) => p.status === 'pending').length;
     const refused = prospects.filter((p: any) => p.status === 'refused').length;
-    const contacted = prospects.filter((p: any) => (p.followup_count || 0) > 0).length;
+    const contacted = prospects.filter((p: any) => p.status === 'contacted' || p.status?.startsWith('followup_')).length;
     const totalFollowups = prospects.reduce((sum: number, p: any) => sum + (p.followup_count || 0), 0);
-    const noResponse = prospects.filter((p: any) => p.status === 'pending' && (p.followup_count || 0) > 0).length;
+    const noResponse = prospects.filter((p: any) => (p.status === 'contacted' || p.status?.startsWith('followup_')) && p.status !== 'accepted' && p.status !== 'refused').length;
     const avgFollowups = total > 0 ? (totalFollowups / total).toFixed(1) : '0';
 
     setReportStats({ total, accepted, pending, refused, contacted, totalFollowups, noResponse });
@@ -402,7 +425,7 @@ export default function NterPlatform() {
 
     const prospectLines = prospects.map((p: any) => {
       const fc = p.followup_count || 0;
-      const statusLabel = p.status === 'accepted' ? t.kpi_accepted : p.status === 'refused' ? t.kpi_refused : t.kpi_pending;
+      const statusLabel = p.status === 'accepted' ? t.kpi_accepted : p.status === 'refused' ? t.kpi_refused : p.status === 'contacted' ? t.status_contacted : p.status?.startsWith('followup_') ? `${t.status_followup} (${p.status.split('_')[1]})` : t.status_pending;
       const hasResponse = p.status === 'accepted' || p.status === 'refused' ? t.report_draft_status_yes : t.report_draft_status_no;
       return `${p.name} | ${statusLabel} | ${fc} | ${hasResponse}`;
     }).join('\n');
@@ -441,7 +464,7 @@ export default function NterPlatform() {
     try {
         const response = await fetch('/api/send-email', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: activeClient.email, subject: `${t.generated_title} - ${activeClient.name}`, text: reportEmailBody, isReport: true })
+            body: JSON.stringify({ to: activeClient.email, subject: `${t.generated_title} - ${activeClient.name}`, text: reportEmailBody, senderName: 'TEJIONA AI Solutions' })
         });
         const data = await response.json();
         if (response.ok && data.success) {
@@ -471,7 +494,7 @@ export default function NterPlatform() {
           <div className="space-y-6 animate-in fade-in">
             <div className="flex gap-4 overflow-x-auto pb-4 border-b border-slate-700 items-center">
               {isLoading ? <span className="text-slate-400 text-sm flex items-center gap-2"><Loader2 size={16} className="animate-spin"/> {t.loading}</span> : clients.map(client => (<button key={client.id} onClick={() => setActiveClient(client)} className={`px-4 py-2 rounded-full text-sm font-semibold border whitespace-nowrap ${activeClient?.id === client.id ? 'bg-indigo-600 text-white border-indigo-500' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-slate-500'}`}>{client.name}</button>))}
-              <button onClick={() => { setClientFormData({ id: null, name: '', email: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setShowAddClientModal(true); }} className="px-4 py-2 rounded-full text-sm font-semibold border border-dashed border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 whitespace-nowrap"><PlusCircle size={16} /> {t.btn_new_client}</button>
+              <button onClick={() => { setClientFormData({ id: null, name: '', email: '', website: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setShowAddClientModal(true); }} className="px-4 py-2 rounded-full text-sm font-semibold border border-dashed border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 transition-colors flex items-center gap-2 whitespace-nowrap"><PlusCircle size={16} /> {t.btn_new_client}</button>
             </div>
 
             {activeClient && (
@@ -479,13 +502,14 @@ export default function NterPlatform() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex flex-col relative group">
                     <div className="absolute top-4 right-4 flex gap-2 opacity-50 hover:opacity-100 transition-opacity">
-                        <button onClick={() => { setClientFormData({ id: activeClient.id, name: activeClient.name || '', email: activeClient.email || '', target: activeClient.target || '', agendaUrl: activeClient.agendaurl || activeClient.agendaUrl || '', crm: activeClient.crm || '', knowledge_base: activeClient.knowledge_base || '', plan: activeClient.plan || 'none' }); setShowEditClientModal(true); }} className="p-2 bg-slate-700 hover:bg-indigo-600 rounded text-white" title={t.btn_edit}><Pencil size={14} /></button>
+                        <button onClick={() => { setClientFormData({ id: activeClient.id, name: activeClient.name || '', email: activeClient.email || '', website: activeClient.website || '', target: activeClient.target || '', agendaUrl: activeClient.agendaurl || activeClient.agendaUrl || '', crm: activeClient.crm || '', knowledge_base: activeClient.knowledge_base || '', plan: activeClient.plan || 'none' }); setShowEditClientModal(true); }} className="p-2 bg-slate-700 hover:bg-indigo-600 rounded text-white" title={t.btn_edit}><Pencil size={14} /></button>
                         <button onClick={() => handleDeleteClient(activeClient.id)} className="p-2 bg-slate-700 hover:bg-red-600 rounded text-white" title={t.btn_delete}><Trash size={14} /></button>
                     </div>
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Briefcase size={18} className="text-indigo-400"/> {t.client_info}</h2>
                     <div className="space-y-3 pr-16">
                       <p className="text-sm"><span className="text-slate-400">{t.company_label}</span> {activeClient.name}</p>
                       {activeClient.email && <p className="text-sm"><span className="text-slate-400">Email :</span> {activeClient.email}</p>}
+                      {activeClient.website && <p className="text-sm"><span className="text-slate-400">{t.form_website} :</span> <a href={activeClient.website.startsWith('http') ? activeClient.website : `https://${activeClient.website}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">{activeClient.website}</a></p>}
                       <p className="text-sm"><span className="text-slate-400">{t.client_target} :</span> {activeClient.target}</p>
                       <p className="text-sm flex items-center gap-2"><FileBarChart size={14} className="text-indigo-400" /> <span className="text-slate-400">{t.reports_sent_label} :</span> <span className="font-semibold text-indigo-300">{activeClient.reports_sent || 0}</span></p>
                       {(() => {
@@ -572,7 +596,9 @@ export default function NterPlatform() {
                               <td className="px-6 py-4">
                                 {prospect.status === 'accepted' && <span className="text-emerald-400 flex items-center gap-1"><CheckCircle size={14}/>{t.status_accepted}</span>}
                                 {prospect.status === 'refused' && <span className="text-red-400 flex items-center gap-1"><XCircle size={14}/>{t.status_refused}</span>}
-                                {prospect.status === 'pending' && <span className="text-yellow-400 flex items-center gap-1"><Clock size={14}/>{t.status_pending}</span>}
+                                {prospect.status === 'pending' && <span className="text-slate-400 flex items-center gap-1"><Clock size={14}/>{t.status_pending}</span>}
+                                {prospect.status === 'contacted' && <span className="text-blue-400 flex items-center gap-1"><Mail size={14}/>{t.status_contacted}</span>}
+                                {prospect.status?.startsWith('followup_') && <span className="text-amber-400 flex items-center gap-1"><RefreshCw size={14}/>{t.status_followup} ({prospect.status.split('_')[1]})</span>}
                               </td>
                               <td className="px-6 py-4 font-medium"><span className={isFollowUpDue ? 'text-indigo-400' : 'text-slate-400'}>{followupStr || "-"}</span></td>
                               <td className="px-6 py-4 text-center"><span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-700 text-xs font-bold text-slate-200">{prospect.followup_count || 0}</span></td>
@@ -647,7 +673,8 @@ export default function NterPlatform() {
                   <option value="growth">{t.plan_growth} — 1500 {t.plan_leads_month} (899$/mois)</option>
                 </select>
               </div>
-              <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_target}</label><input required type="text" value={clientFormData.target} onChange={e => setClientFormData({...clientFormData, target: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
+              <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_website}</label><input type="url" value={clientFormData.website} onChange={e => setClientFormData({...clientFormData, website: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" placeholder="ex: www.client.com" /></div>
+              <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_target}</label><div className="flex gap-2"><input type="text" value={clientFormData.target} onChange={e => setClientFormData({...clientFormData, target: e.target.value})} className="flex-1 bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /><button type="button" disabled={!clientFormData.website || isDetectingTarget} onClick={handleDetectTarget} className="px-3 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white rounded-lg whitespace-nowrap flex items-center gap-1">{isDetectingTarget ? <><Loader2 size={12} className="animate-spin" />{t.form_detecting}</> : t.form_detect_target}</button></div></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.agenda_label}</label><input type="text" value={clientFormData.agendaUrl} onChange={e => setClientFormData({...clientFormData, agendaUrl: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
                 <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.crm_label}</label><input type="text" value={clientFormData.crm} onChange={e => setClientFormData({...clientFormData, crm: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
@@ -677,7 +704,7 @@ export default function NterPlatform() {
                 <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{t.form_p_followup}</label><input type="date" value={prospectFormData.followUp} onChange={e => setProspectFormData({...prospectFormData, followUp: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500" /></div>
               </div>
               {showEditProspectModal && (
-                  <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Statut</label><select value={prospectFormData.status} onChange={e => setProspectFormData({...prospectFormData, status: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500"><option value="pending">{t.status_pending}</option><option value="accepted">{t.status_accepted}</option><option value="refused">{t.status_refused}</option></select></div>
+                  <div><label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Statut</label><select value={prospectFormData.status} onChange={e => setProspectFormData({...prospectFormData, status: e.target.value})} className="w-full bg-slate-900 border border-slate-600 text-white rounded-lg p-2.5 text-sm outline-none focus:border-indigo-500"><option value="pending">{t.status_pending}</option><option value="contacted">{t.status_contacted}</option><option value="followup_1">{t.status_followup} (1)</option><option value="followup_2">{t.status_followup} (2)</option><option value="followup_3">{t.status_followup} (3)</option><option value="followup_4">{t.status_followup} (4)</option><option value="followup_5">{t.status_followup} (5)</option><option value="accepted">{t.status_accepted}</option><option value="refused">{t.status_refused}</option></select></div>
               )}
             </div>
             <div className="p-5 border-t border-slate-700 flex justify-end gap-3 bg-slate-800/50 rounded-b-xl sticky bottom-0 z-10"><button type="button" onClick={() => {setShowAddProspectModal(false); setShowEditProspectModal(false)}} className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white">{t.btn_cancel}</button><button type="submit" disabled={isSaving} className="px-4 py-2 text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-md flex items-center gap-2">{isSaving ? <Loader2 size={16} className="animate-spin" /> : (showEditProspectModal ? <Pencil size={16}/> : <UserPlus size={16} />)} {showEditProspectModal ? t.btn_edit : t.btn_add}</button></div>

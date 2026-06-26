@@ -67,9 +67,13 @@ export async function POST(req: NextRequest) {
       await supabase.from('clients').update({ plan }).eq('id', existing.id);
       console.log(`[Webhook] Client existant mis à jour: ${email} → plan ${plan}`);
     } else {
+      const emailDomain = email.split('@')[1] || '';
+      const website = session.metadata?.website || (emailDomain && !['gmail.com', 'hotmail.com', 'yahoo.com', 'outlook.com', 'icloud.com'].includes(emailDomain) ? emailDomain : '');
+
       const { error } = await supabase.from('clients').insert([{
         name: name || email.split('@')[0],
         email,
+        website,
         plan,
         target,
         knowledge_base: knowledgeBase,

@@ -1,31 +1,42 @@
-/* FICHIER: app/api/send-email/route.ts */
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { to, subject, text, prospectName, clientName, isReport } = body;
+    const {
+      to,
+      subject,
+      html,
+      text,
+      senderName = 'TEJIONA AI Solutions',
+    } = body;
 
-    if (!to) {
-      return NextResponse.json({ error: "Adresse email manquante" }, { status: 400 });
+    if (!to || !subject || (!html && !text)) {
+      return NextResponse.json(
+        { error: 'Missing required fields: to, subject, html or text' },
+        { status: 400 }
+      );
     }
 
-    // Si c'est un rapport, l'e-mail vient de T-Prospect. Sinon, il vient du client.
-    const senderName = isReport ? "T-Prospect" : `L'équipe ${clientName} via T-Prospect`;
-
-    const data = await resend.emails.send({
-      from: `${senderName} <solutions@ntersolutions.ca>`,
-      to: [to],
-      subject: subject,
-      text: text,
+    const { data, error } = await resend.emails.send({
+      from: `${senderName} <noreply@donotreply.tejiona.com>`,
+      to: Array.isArray(to) ? to : [to],
+      subject,
+      html: html ?? undefined,
+      text: text ?? undefined,
     });
 
-    return NextResponse.json({ success: true, data });
-  } catch (error) {
-    console.error("Erreur d'envoi d'email:", error);
-    return NextResponse.json({ error: "Erreur lors de l'envoi de l'email" }, { status: 500 });
+    if (error) {
+      console.error('Resend error:', error);
+      return NextResponse.json({ error }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, data }, { status: 200 });
+  } catch (err) {
+    console.error('Unexpected error:', err);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

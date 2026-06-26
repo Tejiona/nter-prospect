@@ -81,39 +81,74 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-pro", generationConfig: { responseMimeType: "application/json" } });
 
     const languageInstruction = lang === 'en' ? "English" : "Français";
-    const emailType = isFollowUp ? "un e-mail de RELANCE (Follow-up) pertinent, court et incitatif pour relancer la conversation" : "un Cold Email HAUTEMENT PERSONNALISÉ de premier contact";
 
-    const prompt = `
+    const signatureBlock = lang === 'en'
+      ? `The ${clientName} Team\nsolutions@tejiona.com`
+      : `L'équipe ${clientName}\nsolutions@tejiona.com`;
+
+    const contactPrompt = `
       Tu es un expert en prospection B2B travaillant pour : "${clientName}".
       Tu dois rédiger le message obligatoirement en : ${languageInstruction}.
-      
+
       🚨 PROSPECTS DÉJÀ CONTACTÉS À IGNORER (Anti-doublon) : [${existingProspects.join(', ')}]
       Si le prospect ci-dessous est dans la liste, invente une autre entreprise fictive correspondant à la cible "${target}".
 
       - Contact : ${scrapedName}
       - Entreprise : ${scrapedCompany}
       - Infos : ${scrapedContext}
-      
+
       Base de connaissances : """${knowledgeBase}"""
 
-      Ta mission : 
-      1. Rédige ${emailType}.
-      2. ⚠️ EXTRACTION DE COORDONNÉES : Déduis ou extrais l'adresse e-mail, le téléphone et l'adresse postale à partir des "Infos". S'ils sont introuvables, génère des coordonnées professionnelles PLAUSIBLES ET CRÉDIBLES (ex: contact@entreprise.com) pour la démo.
-      3. ⚠️ SIGNATURE OBLIGATOIRE : Signe l'e-mail EXCLUSIVEMENT et EXACTEMENT avec "L'équipe ${clientName} via NTER Solutions". N'utilise jamais "[Votre nom]".
+      Ta mission :
+      1. Rédige un Cold Email HAUTEMENT PERSONNALISÉ de PREMIER CONTACT. L'email doit :
+         - Montrer que tu connais l'entreprise du prospect (référence à leur activité, un projet récent, etc.)
+         - Présenter clairement la proposition de valeur de "${clientName}"
+         - Inclure un appel à l'action clair (rendez-vous, appel, démo)
+         - Être professionnel mais engageant, entre 150-250 mots
+      2. ⚠️ EXTRACTION DE COORDONNÉES : Déduis ou extrais l'adresse e-mail, le téléphone et l'adresse postale. S'ils sont introuvables, génère des coordonnées PLAUSIBLES (ex: contact@entreprise.com).
+      3. ⚠️ SIGNATURE OBLIGATOIRE : Signe l'e-mail EXCLUSIVEMENT avec :\n${signatureBlock}\nN'utilise jamais "[Votre nom]" ni "via NTER Solutions".
 
       Format JSON strict attendu :
       {
-        "name": "${scrapedName}",
-        "company": "${scrapedCompany}",
-        "email": "email extrait ou inventé",
-        "phone": "téléphone extrait ou inventé",
-        "address": "adresse extraite ou inventée",
-        "score": 95,
+        "name": "${scrapedName}", "company": "${scrapedCompany}",
+        "email": "email extrait ou inventé", "phone": "téléphone extrait ou inventé",
+        "address": "adresse extraite ou inventée", "score": 95,
         "log": "Analyse stratégique...",
-        "email_subject": "Sujet de l'email en ${languageInstruction}",
+        "email_subject": "Sujet accrocheur en ${languageInstruction}",
         "email_body": "Corps du message en ${languageInstruction}..."
       }
     `;
+
+    const followUpPrompt = `
+      Tu es un expert en prospection B2B travaillant pour : "${clientName}".
+      Tu dois rédiger le message obligatoirement en : ${languageInstruction}.
+
+      - Contact : ${scrapedName}
+      - Entreprise : ${scrapedCompany}
+      - Infos : ${scrapedContext}
+
+      Base de connaissances : """${knowledgeBase}"""
+
+      Ta mission :
+      1. Rédige un e-mail de RELANCE (follow-up) COURT, PERCUTANT et DIFFÉRENT d'un premier contact. L'email doit :
+         - Faire référence à un précédent message envoyé (sans le citer intégralement)
+         - Apporter un NOUVEL ANGLE ou une NOUVELLE VALEUR (étude de cas, statistique, actualité du secteur)
+         - Être plus court et direct qu'un premier contact (80-150 mots max)
+         - Créer un sentiment d'urgence subtil sans être agressif
+         - Proposer une action concrète simple (réponse rapide, créneau, lien)
+      2. ⚠️ SIGNATURE OBLIGATOIRE : Signe l'e-mail EXCLUSIVEMENT avec :\n${signatureBlock}\nN'utilise jamais "[Votre nom]" ni "via NTER Solutions".
+
+      Format JSON strict attendu :
+      {
+        "name": "${scrapedName}", "company": "${scrapedCompany}",
+        "email": "email", "phone": "téléphone", "address": "adresse", "score": 95,
+        "log": "Stratégie de relance...",
+        "email_subject": "Sujet de relance en ${languageInstruction}",
+        "email_body": "Corps du message de relance en ${languageInstruction}..."
+      }
+    `;
+
+    const prompt = isFollowUp ? followUpPrompt : contactPrompt;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
