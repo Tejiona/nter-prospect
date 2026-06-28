@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
+import dns from 'dns';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+
+function checkMx(domain: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    dns.resolveMx(domain, (err, addresses) => {
+      resolve(!err && addresses && addresses.length > 0);
+    });
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +21,7 @@ export async function POST(req: NextRequest) {
       html,
       text,
       senderName = 'TEJIONA AI Solutions',
+      skipMxCheck = false,
     } = body;
 
     if (!to || !subject || (!html && !text)) {
@@ -21,9 +31,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const recipients = Array.isArray(to) ? to : [to];
+
+    if (!skipMxCheck) {
+      for (const email of recipients) {
+        const domain = email.split('@')[1];
+        if (!domain) {
+          return NextResponse.json({ error: `Invalid email: ${email}` }, { status: 400 });
+        }
+        const hasMx = await checkMx(domain);
+        if (!hasMx) {
+          console.warn(`[send-email] MX check failed for ${domain} — email ${email} skipped`);
+          return NextResponse.json(
+            { error: `Le domaine "${domain}" ne possède pas de serveur mail valide. L'email n'a pas été envoyé pour éviter un bounce.` },
+            { status: 422 }
+          );
+        }
+      }
+    }
+
     const { data, error } = await resend.emails.send({
       from: `${senderName} <noreply@donotreply.tejiona.com>`,
-      to: Array.isArray(to) ? to : [to],
+      to: recipients,
       subject,
       html: html ?? undefined,
       text: text ?? undefined,

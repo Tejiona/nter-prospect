@@ -105,14 +105,14 @@ export async function POST(req: Request) {
          - Présenter clairement la proposition de valeur de "${clientName}"
          - Inclure un appel à l'action clair (rendez-vous, appel, démo)
          - Être professionnel mais engageant, entre 150-250 mots
-      2. ⚠️ EXTRACTION DE COORDONNÉES : Déduis ou extrais l'adresse e-mail, le téléphone et l'adresse postale. S'ils sont introuvables, génère des coordonnées PLAUSIBLES (ex: contact@entreprise.com).
+      2. ⚠️ EXTRACTION DE COORDONNÉES : Extrais l'adresse e-mail, le téléphone et l'adresse postale UNIQUEMENT si tu les trouves dans les informations fournies. Si tu ne trouves PAS d'email réel et vérifié, mets une chaîne vide "". NE GÉNÈRE JAMAIS d'adresse email inventée ou devinée — les emails fictifs causent des bounces et nuisent à la réputation de l'expéditeur.
       3. ⚠️ SIGNATURE OBLIGATOIRE : Signe l'e-mail EXCLUSIVEMENT avec :\n${signatureBlock}\nN'utilise jamais "[Votre nom]" ni "via NTER Solutions".
 
       Format JSON strict attendu :
       {
         "name": "${scrapedName}", "company": "${scrapedCompany}",
-        "email": "email extrait ou inventé", "phone": "téléphone extrait ou inventé",
-        "address": "adresse extraite ou inventée", "score": 95,
+        "email": "email réel extrait ou chaîne vide", "phone": "téléphone extrait ou chaîne vide",
+        "address": "adresse extraite ou chaîne vide", "score": 95,
         "log": "Analyse stratégique...",
         "email_subject": "Sujet accrocheur en ${languageInstruction}",
         "email_body": "Corps du message en ${languageInstruction}..."

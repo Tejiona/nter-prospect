@@ -45,7 +45,7 @@ const TRANSLATIONS = {
     form_knowledge: "Contexte, descriptif, offres", btn_add: "Ajouter",
     generated_title: "Rapport de Campagne", kpi_total: "Total Prospects", kpi_accepted: "Rendez-vous", kpi_pending: "En attente", kpi_refused: "Refusés",
     btn_download_csv: "Télécharger (CSV)", btn_send_email: "Envoyer le rapport", 
-    email_title: "Éditer le message IA",
+    email_title: "Éditer le message IA", email_lang: "Langue du message", email_regenerate: "Régénérer avec l'IA", email_regenerating: "Régénération...",
     loading: "Chargement...", switch_lang: "Switch to English", company_label: "Entreprise :",
     agenda_label: "Agenda", crm_label: "CRM", no_context: "Aucun contexte renseigné.",
     no_prospects: "Aucun prospect généré.", client_label: "Client :", ai_analysis: "💡 Analyse IA",
@@ -119,7 +119,7 @@ const TRANSLATIONS = {
     form_knowledge: "Context, offers", btn_add: "Add",
     generated_title: "Campaign Report", kpi_total: "Total Prospects", kpi_accepted: "Meetings", kpi_pending: "Pending", kpi_refused: "Refused",
     btn_download_csv: "Download (CSV)", btn_send_email: "Send Report", 
-    email_title: "Edit AI Message",
+    email_title: "Edit AI Message", email_lang: "Message language", email_regenerate: "Regenerate with AI", email_regenerating: "Regenerating...",
     loading: "Loading...", switch_lang: "Passer en Français", company_label: "Company:",
     agenda_label: "Calendar", crm_label: "CRM", no_context: "No context provided.",
     no_prospects: "No prospects generated.", client_label: "Client:", ai_analysis: "💡 AI Analysis",
@@ -188,8 +188,24 @@ export default function NterPlatform() {
   const [prospectFormData, setProspectFormData] = useState({ id: null, name: '', company: '', email: '', phone: '', address: '', firstContact: new Date().toISOString().split('T')[0], followUp: '', status: 'pending' });
 
   const [selectedEmail, setSelectedEmail] = useState<{id: string, subject: string, body: string} | null>(null);
+  const [emailEditLang, setEmailEditLang] = useState<'fr' | 'en'>('fr');
+  const [isRegenerating, setIsRegenerating] = useState(false);
   const [sendingEmailId, setSendingEmailId] = useState<string | null>(null);
   const [generatingMessageId, setGeneratingMessageId] = useState<string | null>(null);
+
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState('');
+
+  const startEditing = (field: string, value: string) => { setEditingField(field); setEditingValue(value || ''); };
+  const cancelEditing = () => { setEditingField(null); setEditingValue(''); };
+  const saveInlineField = async (field: string) => {
+    if (!activeClient) return;
+    const dbField = field === 'agendaUrl' ? 'agendaurl' : field;
+    let { data, error } = await supabase.from('clients').update({ [dbField]: editingValue || null }).eq('id', activeClient.id).select('*, prospects(*)');
+    if (error && dbField === 'website') { cancelEditing(); return; }
+    if (!error && data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); }
+    cancelEditing();
+  };
 
   const [showReportConfigModal, setShowReportConfigModal] = useState(false);
   const [reportMode, setReportMode] = useState<'manual' | 'auto'>('manual');
@@ -227,16 +243,28 @@ export default function NterPlatform() {
 
   const handleSaveClient = async (e: React.FormEvent) => {
     e.preventDefault(); setIsSaving(true);
+    const payload: Record<string, any> = {
+      name: clientFormData.name, email: clientFormData.email, target: clientFormData.target,
+      agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan
+    };
+    if (clientFormData.website) payload.website = clientFormData.website;
+
     if (clientFormData.id) {
-        const { data, error } = await supabase.from('clients').update({
-            name: clientFormData.name, email: clientFormData.email, website: clientFormData.website, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan
-        }).eq('id', clientFormData.id).select('*, prospects(*)');
-        if (!error && data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); setShowEditClientModal(false); }
+        let { data, error } = await supabase.from('clients').update(payload).eq('id', clientFormData.id).select('*, prospects(*)');
+        if (error?.message?.includes('website')) {
+          delete payload.website;
+          ({ data, error } = await supabase.from('clients').update(payload).eq('id', clientFormData.id).select('*, prospects(*)'));
+        }
+        if (error) { console.error('Erreur update client:', error); alert('Erreur: ' + error.message); }
+        else if (data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); setShowEditClientModal(false); }
     } else {
-        const { data, error } = await supabase.from('clients').insert([
-            { name: clientFormData.name, email: clientFormData.email, website: clientFormData.website, target: clientFormData.target, agendaurl: clientFormData.agendaUrl, crm: clientFormData.crm, knowledge_base: clientFormData.knowledge_base, plan: clientFormData.plan }
-        ]).select('*, prospects(*)');
-        if (!error && data) { setClients([...clients, data[0]]); setActiveClient(data[0]); setShowAddClientModal(false); }
+        let { data, error } = await supabase.from('clients').insert([payload]).select('*, prospects(*)');
+        if (error?.message?.includes('website')) {
+          delete payload.website;
+          ({ data, error } = await supabase.from('clients').insert([payload]).select('*, prospects(*)'));
+        }
+        if (error) { console.error('Erreur insert client:', error); alert('Erreur: ' + error.message); }
+        else if (data) { setClients([...clients, data[0]]); setActiveClient(data[0]); setShowAddClientModal(false); }
     }
     setClientFormData({ id: null, name: '', email: '', website: '', target: '', agendaUrl: '', crm: '', knowledge_base: '', plan: 'none' }); setIsSaving(false);
   };
@@ -335,6 +363,26 @@ export default function NterPlatform() {
     } catch (e) { alert(t.alert_ai_error); } finally { setGeneratingMessageId(null); }
   };
 
+  const handleRegenerateEmail = async () => {
+    if (!selectedEmail || !activeClient) return;
+    const prospect = activeClient.prospects?.find((p: any) => p.id === selectedEmail.id);
+    if (!prospect) return;
+    setIsRegenerating(true);
+    try {
+      let cleanName = prospect.name; let cleanCompany = prospect.name;
+      if (prospect.name.includes('(')) { const parts = prospect.name.split(' ('); cleanName = parts[0]; cleanCompany = parts[1].replace(')', ''); }
+      const isFollowUp = (prospect.followup_count || 0) > 0;
+      const response = await fetch('/api/agent/action', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ manualName: cleanName, manualCompany: cleanCompany, clientName: activeClient.name, knowledgeBase: activeClient.knowledge_base, isFollowUp, lang: emailEditLang })
+      });
+      const aiData = await response.json();
+      if (aiData.newLead) {
+        setSelectedEmail({ ...selectedEmail, subject: aiData.newLead.email_subject, body: aiData.newLead.email_body });
+      }
+    } catch { alert(t.alert_ai_error); } finally { setIsRegenerating(false); }
+  };
+
   const handleUpdateEmail = async () => {
     if (!selectedEmail || !activeClient) return; setIsSaving(true);
     const { data, error } = await supabase.from('prospects')
@@ -365,7 +413,11 @@ export default function NterPlatform() {
         const updatedClient = { ...activeClient, prospects: activeClient.prospects.map((p: any) => p.id === prospect.id ? { ...p, followup_count: newCount, status: newStatus } : p) };
         setActiveClient(updatedClient); setClients(clients.map((c: any) => c.id === activeClient.id ? updatedClient : c));
         alert(t.alert_email_sent);
-      } else { alert(t.alert_email_failed); }
+      } else {
+        const errMsg = data.error || t.alert_email_failed;
+        alert(typeof errMsg === 'string' ? errMsg : t.alert_email_failed);
+        if (response.status === 422) openEditProspect(prospect);
+      }
     } catch (error) { alert(t.alert_email_failed); } finally { setSendingEmailId(null); }
   };
 
@@ -458,13 +510,53 @@ export default function NterPlatform() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
+  const buildReportHtml = (textBody: string, clientName: string) => {
+    const logoUrl = typeof window !== 'undefined' ? `${window.location.origin}/logo.png` : 'https://nter-prospect.vercel.app/logo.png';
+    const lines = textBody.split('\n');
+    const htmlLines = lines.map(line => {
+      if (line.startsWith('📊') || line.startsWith('📬') || line.startsWith('📋') || line.startsWith('💡') || line.startsWith('🧭'))
+        return `<h2 style="color:#6366f1;font-size:16px;margin:24px 0 12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">${line}</h2>`;
+      if (line.startsWith('- ') || line.startsWith('  - '))
+        return `<div style="padding:4px 0 4px 16px;color:#334155;font-size:14px;">${line}</div>`;
+      if (line.startsWith('→'))
+        return `<div style="padding:6px 12px;margin:4px 0;background:#f1f5f9;border-left:3px solid #6366f1;border-radius:4px;font-size:13px;color:#475569;">${line}</div>`;
+      if (line.includes('---|'))
+        return '';
+      if (line.trim() === '')
+        return '<br/>';
+      return `<p style="margin:4px 0;color:#334155;font-size:14px;line-height:1.6;">${line}</p>`;
+    }).join('');
+
+    return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:32px;text-align:center;">
+    <img src="${logoUrl}" alt="Tejiona AI Solutions" style="width:64px;height:64px;margin-bottom:12px;" />
+    <h1 style="color:#ffffff;font-size:22px;margin:0;">T-Prospect</h1>
+    <p style="color:#a5b4fc;font-size:13px;margin:4px 0 0;">${lang === 'en' ? 'Prospecting Report' : 'Rapport de Prospection'} — ${clientName}</p>
+  </div>
+  <div style="padding:32px;">
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#16a34a;font-weight:bold;text-transform:uppercase;">${t.kpi_accepted}</div><div style="font-size:28px;font-weight:bold;color:#16a34a;">${reportStats.accepted}</div></div>
+      <div style="flex:1;background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#ca8a04;font-weight:bold;text-transform:uppercase;">${t.kpi_pending}</div><div style="font-size:28px;font-weight:bold;color:#ca8a04;">${reportStats.pending}</div></div>
+      <div style="flex:1;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#dc2626;font-weight:bold;text-transform:uppercase;">${t.kpi_refused}</div><div style="font-size:28px;font-weight:bold;color:#dc2626;">${reportStats.refused}</div></div>
+    </div>
+    ${htmlLines}
+  </div>
+  <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:24px;text-align:center;">
+    <img src="${logoUrl}" alt="Tejiona" style="width:32px;height:32px;margin-bottom:8px;opacity:0.6;" />
+    <p style="color:#94a3b8;font-size:12px;margin:0;">Tejiona AI Solutions — solutions@tejiona.com</p>
+  </div>
+</div></body></html>`;
+  };
+
   const handleSendReportToClient = async () => {
     if (!activeClient.email) { alert(t.alert_client_no_email); return; }
     setIsSendingReport(true);
     try {
+        const html = buildReportHtml(reportEmailBody, activeClient.name);
         const response = await fetch('/api/send-email', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ to: activeClient.email, subject: `${t.generated_title} - ${activeClient.name}`, text: reportEmailBody, senderName: 'TEJIONA AI Solutions' })
+            body: JSON.stringify({ to: activeClient.email, subject: `${t.generated_title} - ${activeClient.name}`, html, text: reportEmailBody, senderName: 'TEJIONA AI Solutions' })
         });
         const data = await response.json();
         if (response.ok && data.success) {
@@ -507,10 +599,10 @@ export default function NterPlatform() {
                     </div>
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Briefcase size={18} className="text-indigo-400"/> {t.client_info}</h2>
                     <div className="space-y-3 pr-16">
-                      <p className="text-sm"><span className="text-slate-400">{t.company_label}</span> {activeClient.name}</p>
-                      {activeClient.email && <p className="text-sm"><span className="text-slate-400">Email :</span> {activeClient.email}</p>}
-                      {activeClient.website && <p className="text-sm"><span className="text-slate-400">{t.form_website} :</span> <a href={activeClient.website.startsWith('http') ? activeClient.website : `https://${activeClient.website}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">{activeClient.website}</a></p>}
-                      <p className="text-sm"><span className="text-slate-400">{t.client_target} :</span> {activeClient.target}</p>
+                      <div className="text-sm flex items-center gap-1"><span className="text-slate-400">{t.company_label}</span> {editingField === 'name' ? <span className="flex items-center gap-1 flex-1"><input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('name'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('name')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /></span> : <span className="cursor-pointer hover:text-indigo-300 transition-colors" onClick={() => startEditing('name', activeClient.name)}>{activeClient.name}</span>}</div>
+                      <div className="text-sm flex items-center gap-1"><span className="text-slate-400">Email :</span> {editingField === 'email' ? <input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('email'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('email')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /> : <span className="cursor-pointer hover:text-indigo-300 transition-colors" onClick={() => startEditing('email', activeClient.email)}>{activeClient.email || <span className="italic text-slate-500">—</span>}</span>}</div>
+                      <div className="text-sm flex items-center gap-1"><span className="text-slate-400">{t.form_website} :</span> {editingField === 'website' ? <input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('website'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('website')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /> : <span className="cursor-pointer hover:text-cyan-300 transition-colors" onClick={() => startEditing('website', activeClient.website)}>{activeClient.website ? <a href={activeClient.website.startsWith('http') ? activeClient.website : `https://${activeClient.website}`} target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline" onClick={e => e.stopPropagation()}>{activeClient.website}</a> : <span className="italic text-slate-500">—</span>}</span>}</div>
+                      <div className="text-sm flex items-center gap-1"><span className="text-slate-400">{t.client_target} :</span> {editingField === 'target' ? <input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('target'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('target')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /> : <span className="cursor-pointer hover:text-indigo-300 transition-colors" onClick={() => startEditing('target', activeClient.target)}>{activeClient.target || <span className="italic text-slate-500">—</span>}</span>}</div>
                       <p className="text-sm flex items-center gap-2"><FileBarChart size={14} className="text-indigo-400" /> <span className="text-slate-400">{t.reports_sent_label} :</span> <span className="font-semibold text-indigo-300">{activeClient.reports_sent || 0}</span></p>
                       {(() => {
                         const clientPlan = PLANS[activeClient.plan] || PLANS.none;
@@ -524,7 +616,7 @@ export default function NterPlatform() {
                         const pct = monthlyQuota > 0 ? Math.min(100, Math.round((leadsThisMonth / monthlyQuota) * 100)) : 0;
                         return (
                           <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-3 mt-1">
-                            <p className="text-sm flex items-center gap-2 mb-2"><Globe size={14} className="text-cyan-400" /> <span className="text-slate-400">{t.plan_label} :</span> <span className="font-bold text-cyan-300">{planName}</span> {monthlyQuota > 0 && <span className="text-xs text-slate-500">({clientPlan.price})</span>}</p>
+                            <div className="text-sm flex items-center gap-2 mb-2"><Globe size={14} className="text-cyan-400" /> <span className="text-slate-400">{t.plan_label} :</span> {editingField === 'plan' ? <select autoFocus value={editingValue} onChange={async e => { const val = e.target.value; setEditingValue(val); const { data, error } = await supabase.from('clients').update({ plan: val }).eq('id', activeClient.id).select('*, prospects(*)'); if (!error && data) { setClients(clients.map(c => c.id === data[0].id ? data[0] : c)); setActiveClient(data[0]); } cancelEditing(); }} onBlur={() => cancelEditing()} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm outline-none"><option value="none">{t.plan_none}</option><option value="starter">{t.plan_starter}</option><option value="growth">{t.plan_growth}</option></select> : <span className="font-bold text-cyan-300 cursor-pointer hover:text-cyan-200 transition-colors" onClick={() => startEditing('plan', activeClient.plan || 'none')}>{planName}</span>} {monthlyQuota > 0 && <span className="text-xs text-slate-500">({clientPlan.price})</span>}</div>
                             {monthlyQuota > 0 && (
                               <>
                                 <div className="flex justify-between text-xs text-slate-400 mb-1">
@@ -541,13 +633,13 @@ export default function NterPlatform() {
                         );
                       })()}
                       <div className="pt-3 border-t border-slate-700">
-                        <p className="text-sm flex items-center gap-2"><Calendar size={14} className="text-blue-400"/> <span className="text-slate-400">{t.client_agenda} :</span> {activeClient.agendaurl || activeClient.agendaUrl}</p>
-                        <p className="text-sm flex items-center gap-2 mt-2"><LinkIcon size={14} className="text-emerald-400"/> <span className="text-slate-400">{t.client_crm} :</span> {activeClient.crm}</p>
+                        <div className="text-sm flex items-center gap-2"><Calendar size={14} className="text-blue-400"/> <span className="text-slate-400">{t.client_agenda} :</span> {editingField === 'agendaUrl' ? <input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('agendaUrl'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('agendaUrl')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /> : <span className="cursor-pointer hover:text-indigo-300 transition-colors" onClick={() => startEditing('agendaUrl', activeClient.agendaurl || activeClient.agendaUrl || '')}>{activeClient.agendaurl || activeClient.agendaUrl || <span className="italic text-slate-500">—</span>}</span>}</div>
+                        <div className="text-sm flex items-center gap-2 mt-2"><LinkIcon size={14} className="text-emerald-400"/> <span className="text-slate-400">{t.client_crm} :</span> {editingField === 'crm' ? <input autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveInlineField('crm'); if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('crm')} className="bg-slate-900 border border-indigo-500 text-white rounded px-2 py-0.5 text-sm flex-1 outline-none" /> : <span className="cursor-pointer hover:text-indigo-300 transition-colors" onClick={() => startEditing('crm', activeClient.crm || '')}>{activeClient.crm || <span className="italic text-slate-500">—</span>}</span>}</div>
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-700 flex-1">
                       <p className="text-xs font-semibold text-slate-400 uppercase flex items-center gap-2 mb-2"><Database size={14}/> {t.client_knowledge}</p>
-                      <div className="bg-slate-900 p-3 rounded-lg text-sm text-slate-300 h-24 overflow-y-auto custom-scrollbar border border-slate-700 whitespace-pre-wrap">{activeClient.knowledge_base || <span className="italic text-slate-500">{t.no_context}</span>}</div>
+                      {editingField === 'knowledge_base' ? <textarea autoFocus value={editingValue} onChange={e => setEditingValue(e.target.value)} onKeyDown={e => { if (e.key === 'Escape') cancelEditing(); }} onBlur={() => saveInlineField('knowledge_base')} className="bg-slate-900 p-3 rounded-lg text-sm text-white h-24 w-full border border-indigo-500 outline-none resize-y" /> : <div className="bg-slate-900 p-3 rounded-lg text-sm text-slate-300 h-24 overflow-y-auto custom-scrollbar border border-slate-700 whitespace-pre-wrap cursor-pointer hover:border-indigo-500/50 transition-colors" onClick={() => startEditing('knowledge_base', activeClient.knowledge_base || '')}>{activeClient.knowledge_base || <span className="italic text-slate-500">{t.no_context}</span>}</div>}
                     </div>
                   </div>
                   
@@ -623,7 +715,7 @@ export default function NterPlatform() {
 
                                 {prospect.email_subject && (
                                   <>
-                                    <button onClick={() => setSelectedEmail({id: prospect.id, subject: prospect.email_subject, body: prospect.email_body})} className="p-2 bg-indigo-500/10 text-indigo-400 rounded hover:bg-indigo-500/20 transition flex items-center gap-2" title={t.email_title}><Pencil size={16} /></button>
+                                    <button onClick={() => { setEmailEditLang(activeClient.report_lang || lang); setSelectedEmail({id: prospect.id, subject: prospect.email_subject, body: prospect.email_body}); }} className="p-2 bg-indigo-500/10 text-indigo-400 rounded hover:bg-indigo-500/20 transition flex items-center gap-2" title={t.email_title}><Pencil size={16} /></button>
                                     <button onClick={() => handleSendEmail(prospect)} disabled={sendingEmailId === prospect.id} className="p-2 bg-emerald-500/10 text-emerald-400 rounded hover:bg-emerald-500/20 transition flex items-center gap-2 disabled:opacity-50" title="Envoyer"><Send size={16} /></button>
                                   </>
                                 )}
@@ -720,10 +812,22 @@ export default function NterPlatform() {
               <button onClick={() => setSelectedEmail(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <div className="p-6 bg-slate-900 flex-1 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
+              <div className="flex items-center gap-3 pb-3 border-b border-slate-700">
+                <div className="flex-1">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t.email_lang}</label>
+                  <div className="flex gap-2 mt-2">
+                    <button type="button" onClick={() => setEmailEditLang('fr')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${emailEditLang === 'fr' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'}`}>Français</button>
+                    <button type="button" onClick={() => setEmailEditLang('en')} className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${emailEditLang === 'en' ? 'bg-indigo-600 text-white' : 'bg-slate-700 text-slate-400 hover:text-white'}`}>English</button>
+                  </div>
+                </div>
+                <button type="button" onClick={handleRegenerateEmail} disabled={isRegenerating} className="px-4 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-lg flex items-center gap-2 transition-colors mt-4">
+                  {isRegenerating ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />} {isRegenerating ? t.email_regenerating : t.email_regenerate}
+                </button>
+              </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t.subject_label}</label>
-                <input 
-                  type="text" value={selectedEmail.subject} onChange={(e) => setSelectedEmail({ ...selectedEmail, subject: e.target.value })} 
+                <input
+                  type="text" value={selectedEmail.subject} onChange={(e) => setSelectedEmail({ ...selectedEmail, subject: e.target.value })}
                   className="w-full mt-2 bg-slate-800 border border-slate-700 text-white rounded-lg p-3 text-sm outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>

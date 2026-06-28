@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import dns from 'dns';
+
+function checkMx(domain: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    dns.resolveMx(domain, (err, addresses) => {
+      resolve(!err && addresses && addresses.length > 0);
+    });
+  });
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -115,6 +124,13 @@ export async function GET(req: NextRequest) { // MODIFIÉ ICI (NextRequest)
             } catch (genErr) {
               console.error(`[Cron] Erreur génération relance pour ${p.name}, envoi du message existant:`, genErr);
             }
+          }
+
+          const emailDomain = p.email.split('@')[1];
+          const hasMx = emailDomain ? await checkMx(emailDomain) : false;
+          if (!hasMx) {
+            console.warn(`[Cron] MX check failed for ${emailDomain} — skipping ${p.email}`);
+            continue;
           }
 
           await resend.emails.send({
@@ -353,11 +369,50 @@ export async function GET(req: NextRequest) { // MODIFIÉ ICI (NextRequest)
               };
 
               const textToSend = translations[lang as 'fr'|'en'] || translations['fr'];
-              
+
+              const logoUrl = 'https://nter-prospect.vercel.app/logo.png';
+              const kpiAccepted = lang === 'en' ? 'Accepted' : 'Acceptés';
+              const kpiPending = lang === 'en' ? 'Pending' : 'En attente';
+              const kpiRefused = lang === 'en' ? 'Refused' : 'Refusés';
+              const reportTitle = lang === 'en' ? 'Prospecting Report' : 'Rapport de Prospection';
+              const textLines = textToSend.body.split('\n');
+              const htmlLines = textLines.map((line: string) => {
+                if (line.startsWith('📊') || line.startsWith('📬') || line.startsWith('📋') || line.startsWith('💡') || line.startsWith('🧭'))
+                  return `<h2 style="color:#6366f1;font-size:16px;margin:24px 0 12px;border-bottom:1px solid #e2e8f0;padding-bottom:8px;">${line}</h2>`;
+                if (line.startsWith('- ') || line.startsWith('  - '))
+                  return `<div style="padding:4px 0 4px 16px;color:#334155;font-size:14px;">${line}</div>`;
+                if (line.startsWith('→'))
+                  return `<div style="padding:6px 12px;margin:4px 0;background:#f1f5f9;border-left:3px solid #6366f1;border-radius:4px;font-size:13px;color:#475569;">${line}</div>`;
+                if (line.trim() === '') return '<br/>';
+                return `<p style="margin:4px 0;color:#334155;font-size:14px;line-height:1.6;">${line}</p>`;
+              }).join('');
+
+              const reportHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
+<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+  <div style="background:linear-gradient(135deg,#1e1b4b,#312e81);padding:32px;text-align:center;">
+    <img src="${logoUrl}" alt="Tejiona AI Solutions" style="width:64px;height:64px;margin-bottom:12px;" />
+    <h1 style="color:#ffffff;font-size:22px;margin:0;">T-Prospect</h1>
+    <p style="color:#a5b4fc;font-size:13px;margin:4px 0 0;">${reportTitle} — ${c.name}</p>
+  </div>
+  <div style="padding:32px;">
+    <div style="display:flex;gap:12px;margin-bottom:24px;">
+      <div style="flex:1;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#16a34a;font-weight:bold;text-transform:uppercase;">${kpiAccepted}</div><div style="font-size:28px;font-weight:bold;color:#16a34a;">${accepted}</div></div>
+      <div style="flex:1;background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#ca8a04;font-weight:bold;text-transform:uppercase;">${kpiPending}</div><div style="font-size:28px;font-weight:bold;color:#ca8a04;">${pending}</div></div>
+      <div style="flex:1;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:11px;color:#dc2626;font-weight:bold;text-transform:uppercase;">${kpiRefused}</div><div style="font-size:28px;font-weight:bold;color:#dc2626;">${refused}</div></div>
+    </div>
+    ${htmlLines}
+  </div>
+  <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:24px;text-align:center;">
+    <img src="${logoUrl}" alt="Tejiona" style="width:32px;height:32px;margin-bottom:8px;opacity:0.6;" />
+    <p style="color:#94a3b8;font-size:12px;margin:0;">Tejiona AI Solutions — solutions@tejiona.com</p>
+  </div>
+</div></body></html>`;
+
               await resend.emails.send({
                 from: `TEJIONA AI Solutions <noreply@donotreply.tejiona.com>`,
                 to: [c.email],
                 subject: textToSend.sub,
+                html: reportHtml,
                 text: textToSend.body,
               });
 
