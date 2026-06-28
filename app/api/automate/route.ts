@@ -13,16 +13,19 @@ function checkMx(domain: string): Promise<boolean> {
   });
 }
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-const resend = new Resend(process.env.RESEND_API_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+function getSupabase() {
+  return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+}
+function getResend() { return new Resend(process.env.RESEND_API_KEY); }
+function getGenAI() { return new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || ""); }
 
 const PLAN_QUOTAS: Record<string, number> = { starter: 500, growth: 1500 };
 const MAX_LEADS_PER_RUN = 5;
 
 export async function GET(req: NextRequest) { // MODIFIÉ ICI (NextRequest)
+  const supabase = getSupabase();
+  const resend = getResend();
+  const genAI = getGenAI();
   try {
     // 1. SÉCURITÉ : MODE DIAGNOSTIC
     const secretParam = req.nextUrl.searchParams.get('secret');
