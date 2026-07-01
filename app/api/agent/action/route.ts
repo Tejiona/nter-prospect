@@ -2,7 +2,17 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
+import dns from 'dns';
+
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || "");
+
+function checkMx(domain: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    dns.resolveMx(domain, (err, addresses) => {
+      resolve(!err && addresses && addresses.length > 0);
+    });
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -155,17 +165,29 @@ export async function POST(req: Request) {
     const cleanJson = response.text().replace(/```json|```/g, '').trim();
     const data = JSON.parse(cleanJson);
 
+    let validatedEmail = (data.email || '').trim();
+    if (validatedEmail && validatedEmail.includes('@')) {
+      const domain = validatedEmail.split('@')[1];
+      const hasMx = await checkMx(domain);
+      if (!hasMx) {
+        console.warn(`[agent] MX check failed for AI-generated email ${validatedEmail} — cleared`);
+        validatedEmail = '';
+      }
+    } else {
+      validatedEmail = '';
+    }
+
     return NextResponse.json({
       newLog: `[IA] ${data.log}`,
-      newLead: { 
-        name: data.name, 
-        company: data.company, 
-        email: data.email,
+      newLead: {
+        name: data.name,
+        company: data.company,
+        email: validatedEmail,
         phone: data.phone,
         address: data.address,
-        score: data.score, 
-        email_subject: data.email_subject, 
-        email_body: data.email_body 
+        score: data.score,
+        email_subject: data.email_subject,
+        email_body: data.email_body
       }
     });
 

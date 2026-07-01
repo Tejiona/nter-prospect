@@ -200,7 +200,7 @@ async function run() {
             Base de connaissances : """${c.knowledge_base || ''}"""
             Ta mission :
             1. Trouve une entreprise correspondant à la cible et rédige un Cold Email HAUTEMENT PERSONNALISÉ de premier contact.
-            2. Extrais ou génère des coordonnées professionnelles plausibles.
+            2. ⚠️ Extrais l'email UNIQUEMENT s'il est réel et trouvé dans les données. Si aucun email réel n'est disponible, mets une chaîne vide "". NE GÉNÈRE JAMAIS d'email inventé ou deviné.
             3. Signe l'e-mail EXCLUSIVEMENT avec :\n${sigBlock}\nN'utilise jamais "via NTER Solutions".
             Format JSON strict :
             { "name": "Nom du contact", "company": "Entreprise", "email": "email", "phone": "téléphone", "address": "adresse", "score": 95, "log": "Analyse...", "email_subject": "Sujet", "email_body": "Corps du message" }
@@ -211,6 +211,13 @@ async function run() {
           const cleanJson = response.text().replace(/```json|```/g, '').trim();
           const data = JSON.parse(cleanJson);
 
+          let aiEmail = (data.email || '').trim();
+          if (aiEmail && aiEmail.includes('@')) {
+            const emailDomain = aiEmail.split('@')[1];
+            const hasMx = await checkMx(emailDomain);
+            if (!hasMx) { console.warn(`[Cron-Local] MX check failed for AI email ${aiEmail} — cleared`); aiEmail = ''; }
+          } else { aiEmail = ''; }
+
           const leadName = `${data.name} (${data.company})`;
           const followUpDate = new Date();
           const daysAhead = 5 + Math.floor(Math.random() * 5);
@@ -220,7 +227,7 @@ async function run() {
           const followUpStr = followUpDate.toISOString().split('T')[0];
 
           await supabase.from('prospects').insert([{
-            client_id: c.id, name: leadName, email: data.email || '', phone: data.phone || '', address: data.address || '',
+            client_id: c.id, name: leadName, email: aiEmail, phone: data.phone || '', address: data.address || '',
             firstcontact: todayStr, status: 'pending', followup: followUpStr,
             email_subject: data.email_subject, email_body: data.email_body, followup_count: 0
           }]);
