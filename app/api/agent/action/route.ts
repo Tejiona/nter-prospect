@@ -191,8 +191,8 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erreur Route API:", error);
-    return NextResponse.json({ error: "Erreur lors de l'opération" }, { status: 500 });
+    return NextResponse.json({ error: error?.message || "Erreur lors de l'opération" }, { status: 500 });
   }
 }
